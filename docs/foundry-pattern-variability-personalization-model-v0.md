@@ -71,6 +71,34 @@ Foundry permits four and only four types of variation inside position apps. All 
 - Structural variants may be scoped to tenant or role. They may never be scoped to user.
 - Introducing a new structural variant is a governed process defined in §8.
 
+### 2.3 Boundary disambiguation: emphasis variant vs view-state
+
+These two types share a common symptom (the user's app looks different) but are governed differently. The following rules clarify the boundary.
+
+**The core distinction:**
+
+> An emphasis variant answers "how should this type of content be presented?" — it is answerable without knowing the current data or the user's operational context.
+> A view-state preference answers "what am I looking at right now?" — it encodes the user's current operational choices about which data to see and how.
+
+**Disambiguation table:**
+
+| Ambiguous case | Classification | Why |
+|---|---|---|
+| `column_choice` vs `key_fact_count` | `column_choice` = view-state; `key_fact_count` = emphasis | Column choice is a per-session operational decision about which data columns to show. Key fact count is a role-level presentation decision about information density in the standard card. |
+| `pinned_view` vs nav structure | `pinned_view` = view-state; nav structure = invariant (I1) | Pinning a shortcut to a view is an operational preference. The navigation structure itself cannot be personalized at any scope. |
+| `section_expansion` vs `section_grouping` | `section_expansion` = view-state; `section_grouping` = layout-driven (role) | Expansion state is transient — the user's current collapsed/expanded choice. Section grouping is a structural presentation decision about how sections are labeled and ordered. |
+| `result_grouping` vs `saved_filter` | `result_grouping` = emphasis; `saved_filter` = view-state | Result grouping is a presentation decision about how results are organized in the UI. A saved filter is a data-selection decision about which records to show. |
+| `ai_panel_visibility` vs `ai_assist_mode` | `ai_panel_visibility` = user preference (view-state category); `ai_assist_mode` = structural variant | Panel visibility is a per-user runtime toggle. AI assist mode is a structural change that adds or removes a flow step — set at tenant scope, not user scope. |
+
+**Decision rule when classification is unclear:**
+
+1. Does the variation require a change to the IR node tree? → Structural variant.
+2. Does the variation change which data the user is viewing this session? → View-state.
+3. Does the variation change the presentation of a content type universally for this position? → Emphasis variant.
+4. Does the variation change only visual appearance without affecting elements? → Token-driven.
+
+If more than one rule applies, classify at the higher governance level. When in doubt between emphasis and structural: apply the IR test (rule 1).
+
 ---
 
 ## 3. Scope system
@@ -258,6 +286,47 @@ Each entry defines: the variant identifier, its classification type, the maximum
 
 ---
 
+### 4.11 Structural variant IR transformation table
+
+This table defines exactly what changes in the IR node tree for each structural variant. It is the binding contract between the approved variant registry and the compiler. The output contract IR trees in 10.3 define the default node structure; this table defines the delta when the variant is active.
+
+The compiler must implement each row here as a distinct IR branch. A structural variant without an entry in this table is not compiler-ready regardless of whether it passes the §8.2 approval requirements.
+
+| Variant id | Pattern | Default IR structure | Variant IR structure | Exact node changes |
+|---|---|---|---|---|
+| `list_style = compact_grid` | CollectionView | `RecordList > RecordRow[]` each row: Identifier, StatusBadge, KeyFactsStrip, InlineActions | `RecordGrid > GridItem[]` each item: Identifier, StatusBadge, 2 facts max | RecordList node → RecordGrid container; RecordRow → GridItem; KeyFactsStrip in GridItem capped at 2 facts (not the row max of 4); InlineActions removed from GridItem; BulkActionBar and PaginationControl remain unchanged |
+| `sidebar_position = below_content` | RecordPage | Two-column layout: ContentSections (main) + sidebar (right): TaskContextPanel, AIAssistPanel | Single-column: ContentSections → sidebar below in DOM order | Layout wrapper changes from CSS two-column grid to single-column stack; TaskContextPanel and AIAssistPanel move from right column to a stacked section appended after ContentSections; no child node changes — only the container layout node and DOM order change |
+| `summary_strip_layout = card_grid` | OverviewMonitor | `SummaryStrip > MetricTile[]` horizontal flex row | `SummaryCardGrid > MetricCard[]` CSS grid layout | SummaryStrip node → SummaryCardGrid; MetricTile → MetricCard (expanded format: larger value display, optional trend indicator, more vertical space per item); grid column count responsive; NavigationLink and AlertIndicator remain present on MetricCard |
+| `exception_list_mode = list_with_drill_in` | ExceptionResolutionView | Single exception: ExceptionHeader → ExceptionDetail → KeyFactsStrip → ActionPanel → optional EscalationPanel | `ExceptionListContainer > ExceptionListItem[] + ExceptionDetailPane` | Adds ExceptionListContainer as root wrapper; adds ExceptionListItem (severity badge + type label + entity reference, one per active alert) as a navigable list; ExceptionDetailPane replaces the prior single-exception layout and renders the selected exception's full detail on selection; ActionPanel and EscalationPanel move inside ExceptionDetailPane |
+| `form_layout = stepped_multi_section` | CreateEditFlow | `ActiveSection > SmartFormSection` (single, no navigator); ProgressIndicator inactive | `StepNavigator + ActiveSection > SmartFormSection` (stepped with navigator); ProgressIndicator active with step count | Adds StepNavigator node (sidebar list or top stepper per `section_navigator_style` variant); FlowHeader.ProgressIndicator activates with current-step/total display; FlowNavigationBar.NextAction adds step-level validation before advancing; Submit action appears only on final step |
+| `autosave = enabled` | CreateEditFlow | DraftSaveIndicator node absent; CancelAction has single discard path | DraftSaveIndicator node present and active; CancelAction adds "Save draft" option | DraftSaveIndicator changes from conditional-absent to conditionally-visible (shown when unsaved changes exist); CancelAction modal gains "Save draft" branch before discard; backend autosave API hook activates on field-blur events |
+| `approver_selection = user_selectable` | ApprovalFlow | Step: Approver confirmation renders `ApproverList` as a static read-only display of required approvers | Step: Approver confirmation renders `ApproverList` as an interactive multi-select bounded to the approved approver set | ApproverList node changes from static display to interactive selector; validation added to the Approver confirmation step (must select ≥1 from the constrained set before Next is enabled); the constrained approver set is resolved from the ApprovalSpec at compile time — not free-form input |
+| `ai_assist_mode = auto_fill_with_review` | AssistedSetupFlow | No AI review step between Configuration and Review steps; AI suggestions shown inline per configuration step | Adds `Step: AI review > ReviewSummary` between Configuration steps and final Review step | Adds an AI review step node after all Configuration steps; AI-suggested values are held in pending state (not applied) until this step; the step renders ReviewSummary showing only AI-suggested values with per-item Accept/Edit controls; values accepted here are applied before the final Review step |
+
+---
+
+### 4.12 PersonalizationSurface schema cross-reference
+
+This table maps the `surfaceType` vocabulary from Position Projection Schema v0 §4.15 (10.2) to the variation taxonomy in this document (§2.1). It makes explicit how the schema type maps to governance rules.
+
+The `PersonalizationSurface` schema is defined in 10.2 §4.15. This document does not re-define it — it governs how each type behaves.
+
+| 10.2 `surfaceType` value | Variation type (§2.1) | Max scope allowed | Stored in preference service | Compile-time or runtime |
+|---|---|---|---|---|
+| `visual_theme` | Token-driven | Tenant | No — resolved from token system | Compile-time (token resolution) |
+| `density_mode` | Token-driven + User preference | User | Yes — user's density choice | Runtime (user toggle) |
+| `saved_filter` | View-state | User | Yes | Runtime |
+| `sort_preference` | View-state | User | Yes | Runtime |
+| `column_choice` | View-state | User | Yes | Runtime |
+| `pinned_view` | View-state | User | Yes | Runtime |
+| `section_expansion` | View-state | User | Yes | Runtime |
+| `emphasis_variant` | Emphasis variant | Role or User (per §4 registry) | Yes when user-scope; no when role-scope (compiled) | Role: compile-time; User: runtime |
+| `structural_variant` | Structural variant | Role (never user) | No — compiled into PositionProjection | Compile-time only |
+
+**Key rule from this mapping:** Any `PersonalizationSurface` with `surfaceType=structural_variant` must have `isStructuralVariant=true`, must have max scope ≤ role, and must never appear in the runtime preference store. If a structural_variant entry is found in the preference store for a user, it is stale data and must be discarded silently.
+
+---
+
 ## 5. Token system integration
 
 Token-driven variation does not appear in the approved variant registry (§4) because it does not change structure or composition. It is governed separately here.
@@ -358,6 +427,33 @@ The preference service must be regeneration-aware. When a new `positionVersion` 
 
 A regeneration that results in zero orphaned preferences must produce zero notifications. Notification only on actual data loss.
 
+### 6.5 Performance constraints
+
+These constraints apply to the preference service and validation pipeline. They are not implementation prescriptions — they are requirements the implementation must satisfy.
+
+**Preference loading:**
+- Preferences for the current `positionId` are loaded eagerly on app init, before any view renders.
+- All preferences for a positionId are loaded in a single batch fetch — not per-view on demand.
+- The loaded preference set is cached in-memory for the session. Individual views read from the in-memory cache, not from the preference service.
+
+**Validation timing:**
+- Version validation (detecting a new `positionVersion`) runs once at app init.
+- If no new version is detected, validation is skipped entirely for that session. Per-view lazy validation is not permitted — it would create inconsistent state within a session.
+- If a new version is detected, all preferences for the positionId are validated in a single synchronous pass before any view renders. No view may render with an unvalidated preference set.
+
+**Cache invalidation triggers:**
+- `positionVersion` changes (detected at app init)
+- User explicitly saves a new preference (immediate cache update; preference service write is async)
+- Conflict resolution discards a preference (immediate cache update)
+- Session end — cache is not persisted between sessions; preferences are reloaded from the preference service on next init
+
+**Storage size guidance (soft limits):**
+- Preference entries per `positionId` per `userId`: warn at 40; log at 50. Exceeding 50 entries suggests variant sprawl or personalization surface overuse.
+- Stored value size per preference entry: no individual preference value should exceed 2 KB. Larger values indicate the wrong data is being stored (e.g., full entity records rather than ids or keys).
+
+**Lazy loading exception:**
+- Emphasis variant preferences that are user-scope may be validated lazily when the view that contains them is first rendered, provided that: (a) the view is not the defaultLandingViewId, and (b) the emphasis variant does not affect navigation or action semantics. This is the only permitted exception to the single-pass validation rule.
+
 ---
 
 ## 7. Conflict resolution algorithm
@@ -437,6 +533,47 @@ Silent loss of personalization is not acceptable. If `conflictPolicy = preserve_
 | **B — Role default introduced over user preference** | A new role default covers a surface the user has already personalized | Preserve user preference where it remains valid; role default fills only unconfigured surfaces — it does not overwrite existing valid user preferences |
 | **C — Tenant default changes** | Tenant-level configuration changes after regeneration | Preserve role and user preferences above tenant level where still valid; new tenant default fills surfaces not covered by role or user configuration |
 | **D — Pattern change on a view** | ViewSpec.pattern changes for a view (itself a breaking change per UX Doctrine I4 and schema §6.2) | Treat as Scenario A: discard all view-state preferences for that view; notify user; apply the new pattern's defaults |
+
+### 7.4 Navigation graph changes and personalization
+
+The navigation graph (NavigationSpec in 10.2 §4.2a) is schema-level. It is governed by invariant I1 (navigation structure does not change without a versioned migration) and is not a personalization surface. However, navigation changes can invalidate user-scope view-state preferences. This section defines the interaction.
+
+**When nav items are added (new view added to workSurface.views):**
+- No stored preference is affected — the new view has no prior preferences.
+- The new view uses role-scope defaults and pattern defaults on first load.
+- No conflict resolution triggered.
+
+**When a nav item is removed (viewId removed from workSurface.views):**
+- Any `pinned_view` preference referencing the removed viewId is orphaned → Scenario A.
+- Any `saved_filter`, `sort_preference`, `column_choice`, or `section_expansion` preferences keyed to the removed viewId are also orphaned → Scenario A.
+- Conflict resolution discards all preferences for that viewId and notifies per conflictPolicy.
+- This is a breaking change — it must bump `positionVersion` per schema §6.2.
+
+**When `navOrder` changes (view reordered in navigation):**
+- `navOrder` changes are non-breaking per schema §6.2 (non-versioned change for display-order changes).
+- No personalization conflict is triggered.
+- Users will see their navigation items in the new order on next app load. This is by design — the user does not "own" the nav order, only shortcuts to views.
+
+**When `isHiddenFromNav` changes (view hidden from nav but still reachable):**
+- The viewId still exists in workSurface.views — no orphan.
+- `pinned_view` preferences for that viewId remain valid and still work as shortcuts.
+- The view is reachable via its shortcut even if not in the main nav.
+- No conflict resolution triggered.
+
+**When `defaultLandingViewId` changes:**
+- `defaultLandingViewId` is a schema-level field in DefaultViewHints — it is not a personalization surface in v0.
+- The new landing view takes effect on next app load for all users.
+- If a user had a `pinned_view` shortcut to the old landing view, it remains valid (the view still exists).
+- There is no user-scope "saved landing view" preference in v0. If this is added in a future version, it must handle the interaction with `defaultLandingViewId` changes explicitly.
+
+**When `navStyle` changes (sidebar → topbar → tabs):**
+- `navStyle` is declared as an optional enum in NavigationSpec (10.2 §4.2a) and must be an approved variant.
+- This is a structural variant on the navigation container — it is schema-level and compile-time.
+- It cannot be set by users. No user-scope preference is affected.
+- If `navStyle` changes between regenerations, it is a structural change to the navigation layout. It must follow the structural variant governance process (§8) and constitutes a breaking change requiring a `positionVersion` bump.
+
+**General rule:**  
+Personalization operates within the navigation graph — it can save shortcuts to views that exist in the graph. It cannot modify the graph itself. Any personalization preference that references a navigation element (viewId, navLabel, navOrder) is governed by what the current compiled NavigationSpec declares. When the NavigationSpec changes, the conflict resolution algorithm (§7) handles the downstream impact on view-state preferences.
 
 ---
 
