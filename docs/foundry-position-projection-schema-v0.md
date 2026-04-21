@@ -1,6 +1,6 @@
 # Foundry Position Projection Schema v0
 
-**Status:** First working draft  
+**Status:** Revised v0 — patch round 1  
 **Workstream:** UI/UX — Work Product 10.2  
 **References:** Foundry UX Doctrine v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the UI-facing schema that the compiler must resolve to generate a position app.
@@ -26,6 +26,8 @@ progressive semantic slice
 ```
 
 The compiler resolves a validated semantic slice into a `PositionProjection` object. The UI generator consumes this object to select patterns, compose views, configure personalization surfaces, and wire up action and permission boundaries.
+
+A semantic slice can be partial. Foundry2 explicitly supports pain-point-first, start-anywhere adoption — a position app may be generated before all of its capabilities are modeled. The UI generator must distinguish between an extension section that is absent because the position genuinely lacks that capability, and one that is absent because the slice is not yet complete. The `completeness` section (§4.16) provides this distinction. An absent extension section that is not explicitly declared as out-of-scope is treated as deferred, consistent with UX Doctrine §2.8. Provisional state must be explicit; unknown must not masquerade as empty, zero, or complete.
 
 **Schema design goals:**
 - Narrow enough to remain stable across minor semantic changes
@@ -73,6 +75,7 @@ Blurring this boundary is a schema defect. If a field feels like a runtime value
 | `permissionsHooks` | Core | PermissionsHooks | Required | Permission scopes and boundaries |
 | `defaultViewHints` | Core | DefaultViewHints | Required | Generator-time defaults for layout, sort, and filter |
 | `personalizationHooks` | Core | PersonalizationHooks | Required | Personalization surfaces and scopes |
+| `completeness` | Core | ProjectionCompletenessSpec | Required | Slice completeness state and capability resolution status |
 | `tasks` | Extension | list\<TaskSpec\> | Optional | Discrete work items — present when position handles task-oriented work |
 | `decisions` | Extension | list\<DecisionSpec\> | Optional | Structured choice points — present when position makes explicit decisions |
 | `monitoredEntities` | Extension | list\<MonitoredEntitySpec\> | Optional | Watched entities — present when position has monitoring responsibility |
@@ -84,8 +87,8 @@ Blurring this boundary is a schema defect. If a field feels like a runtime value
 
 **Schema-level rules:**
 
-- Every `PositionProjection` must include all Core sections.
-- Extension sections that are absent must not cause a UI pattern failure. An absent extension section produces a correct empty or hidden state.
+- Every `PositionProjection` must include all Core sections, including `completeness`.
+- Extension sections that are absent must not cause a UI pattern failure. Whether an absent extension section renders as empty/hidden or as provisional/deferred depends on its declaration in `completeness`. See §4.16 and C11.
 - The schema must be fully resolvable from a validated semantic slice without querying live backend services.
 - The `PositionProjection` is versioned. See §6 for versioning rules.
 
@@ -405,7 +408,7 @@ Actions are things the position can initiate. This section defines the full acti
 |---|---|---|---|---|
 | `actionId` | id | Required | Unique identifier | Invariant across regenerations |
 | `actionType` | string | Required | Business classification (e.g., `SubmitInvoice`, `ApprovePO`) | |
-| `label` | string | Required | Display label — must be consistent across all position apps | P8, P13 |
+| `label` | string | Required | Display label — must be consistent across all position apps | P8 |
 | `targetEntityType` | string | Optional | The entity type this action operates on | |
 | `preconditions` | list\<PreconditionSpec\> | Optional | Conditions that must be true for this action to be available | |
 | `requiredInputs` | list\<InputFieldSpec\> | Optional | Fields the user must provide | |
@@ -426,8 +429,8 @@ Actions are things the position can initiate. This section defines the full acti
 | `tooltipText` | string | Optional | Required when `displayWhenNotMet=disable_with_tooltip` |
 
 **Rules:**
-- `label` must be identical for the same `actionType` across all projections in the same tenant. Two actions of the same type must not use different labels (P13, I9). Enforcement mechanism: see Action Label Registry seam in §7.
-- `telemetryKey` is invariant. Changing it is a breaking change (UX Doctrine P10, I7).
+- `label` must be identical for the same `actionType` across all projections in the same tenant. Two actions of the same type must not use different labels (P8, I8). Enforcement mechanism: see Action Label Registry seam in §7.
+- `telemetryKey` is invariant. Changing it is a breaking change. Telemetry hook-key stability is an instrumentation-layer invariant (UX Doctrine §2.7, P10); it is tracked in the evaluation/instrumentation specification, not as a doctrine-level invariant.
 - `isDestructive=true` requires `confirmationType=full`.
 - Actions with `requiresApproval=true` must have a corresponding `ApprovalSpec` in the `approvals` section.
 
@@ -637,9 +640,38 @@ Defines which surfaces the user can personalize within this position app, at wha
 
 **Rules:**
 - `surfaceType=structural_variant` may not be introduced without a corresponding approved variant in the UI Pattern Library (10.3).
+- `isStructuralVariant=true` declares that this surface is a compiled product artifact — an approved pattern variant — not a user-modifiable preference. Structural variant surfaces must have `scope=tenant` or `scope=role`. `scope=user` is not permitted for structural variants. This enforces UX Doctrine §3.4: approved pattern variants are versioned product artifacts, not user personalization; they are not governed by user preferences.
 - `conflictPolicy` applies globally to this projection. Per-surface conflict policies are not supported at v0.
 - The precedence order (global → tenant → role → user) from UX Doctrine §3.3 governs conflict resolution at runtime. `conflictPolicy` governs what to do when a user preference is invalidated — see UX Doctrine §3.5.
 - `targetComponentTypes` must reference component names that exist in the Semantic Component Library (work product 10.5). At v0, these are declared as string identifiers and validated once 10.5 is complete.
+
+---
+
+### 4.16 ProjectionCompletenessSpec
+
+Declares the completeness state of this projection's semantic slice. Required in every projection. Aligns with UX Doctrine §2.8: provisional state must be explicit; unknown must not masquerade as empty, zero, or complete.
+
+The UI generator uses this section to distinguish between three states for any absent extension section:
+
+| State | Meaning | Generator behavior |
+|---|---|---|
+| Listed in `resolvedCapabilities` | Fully modeled and present in this projection | Normal rendering |
+| Listed in `deferredCapabilities` | In scope for this position but not yet modeled in this slice | Render as provisional / "not yet available"; see C11 |
+| Listed in `outOfScopeCapabilities` | Confirmed absent — this position genuinely does not need this capability | Render as absent / hidden |
+| Not listed anywhere | Unknown | Treat as deferred (see C11) |
+
+| Field | Type | Required | Description | Constraints |
+|---|---|---|---|---|
+| `sliceStatus` | enum(full, partial, provisional) | Required | Overall completeness state of the semantic slice | `full` = all capabilities modeled; `partial` = some in-scope capabilities not yet modeled; `provisional` = semantic model itself is subject to revision |
+| `resolvedCapabilities` | list\<string\> | Required | Extension section names fully resolved and present in this projection | e.g., `["tasks", "approvals"]` |
+| `deferredCapabilities` | list\<string\> | Optional | Extension section names known to be in scope but not yet modeled | Absent due to incomplete slice, not because the position lacks the capability |
+| `outOfScopeCapabilities` | list\<string\> | Optional | Extension section names confirmed not applicable to this position | |
+
+**Rules:**
+- If `sliceStatus=full`, `deferredCapabilities` must be empty or absent.
+- `sliceStatus=provisional` signals that field names, state labels, and action semantics in the entire projection may change. The generator must render the app in a provisional frame consistent with UX Doctrine §2.8.
+- An extension section that is absent from the projection and not declared in `deferredCapabilities` or `outOfScopeCapabilities` is treated as deferred by the generator. The generator must not assume it is definitively absent.
+- The union of `resolvedCapabilities`, `deferredCapabilities`, and `outOfScopeCapabilities` should account for all known extension section names. Unknown sections fall back to deferred treatment.
 
 ---
 
@@ -677,6 +709,12 @@ Any `ActionSpec` with `requiresApproval=true` must have a corresponding `Approva
 **C10 — Action slot binding must satisfy the action budget**  
 In any `PatternInputBinding.actionSlots`: `secondaryActionIds.length` ≤ 3; total visible actions (`1 primary + secondary count`) ≤ 5; any action count above 5 must go to `overflowActionIds`. Validated at compile time. Violations are schema errors, not warnings.
 
+**C11 — Deferred capabilities must not render as definitively absent**  
+When an extension section name appears in `completeness.deferredCapabilities`, or when an extension section is absent from the projection and not declared in `completeness.outOfScopeCapabilities`, the generator must render the corresponding UI surface in a provisional or "not yet available" state. It must not render the surface as empty, zero, definitively absent, or complete. Unknown must not masquerade as zero or empty. (UX Doctrine §2.8, I9)
+
+**C12 — Structural variant surfaces must not be user-scoped**  
+Any `PersonalizationSurface` with `isStructuralVariant=true` must have `scope=tenant` or `scope=role`. `scope=user` on a structural variant is a compile-time schema error. (UX Doctrine §3.4)
+
 ---
 
 ## 6. Versioning strategy
@@ -696,7 +734,7 @@ In any `PatternInputBinding.actionSlots`: `secondaryActionIds.length` ≤ 3; tot
 - Changing the type of an existing field
 - Removing or renaming a value in an existing enum
 - Changing a view's `pattern` (UX Doctrine I4)
-- Changing `actionType` label for the same business action (UX Doctrine P13, I9)
+- Changing `actionType` label for the same business action (UX Doctrine P8, I8)
 
 **Non-breaking — minor version bump:**
 - Adding a new optional field to any section
@@ -764,6 +802,8 @@ Integration points where other Foundry layers connect. Identified here to preven
 | Personalization hooks and scopes are identified | Met | §4.15 PersonalizationHooks; scopes align with UX Doctrine §3.3 precedence |
 | Schema is sufficiently narrow to remain stable | Met | Schema is UI-facing only; excludes backend contracts, policy logic, and provenance internals |
 | Open seams for policy/provenance/AI are identified without overcommitting | Met | §7 Open Seams lists all integration points with explicit status |
+| Schema can represent partial and provisional semantic slices explicitly | Met (patch round 1) | §4.16 ProjectionCompletenessSpec added; C11 defines generator behavior for deferred capabilities; §1 and §3 updated to reflect partial-slice operating model from UX Doctrine §2.8 |
+| Personalization surface scoping is aligned with revised UX Doctrine §3.4 three-way distinction | Met (patch round 1) | §4.15 Rules updated: `isStructuralVariant=true` requires `scope=tenant` or `scope=role`; C12 enforces this at compile time |
 
 ---
 
