@@ -49,6 +49,10 @@ Each workflow is structured in eight sections:
 | Generator implications | What the compiler must do to produce this workflow |
 | Issues surfaced | Specification gaps and tensions discovered during the trace |
 
+### 1.4 PositionProjection excerpt alignment note
+
+The JSON excerpts in §3.2, §4.2, and §5.2 use simplified field names for readability. Before these excerpts are used for compiler testing, they must be aligned to the authoritative 10.2 schema. Key deviations: excerpts use `positionLabel` (10.2 uses `positionTitle`), `primaryViews` (10.2 uses `workSurface.views`), `actionSpecs` (10.2 uses `actions`), `approvalSpecs` (10.2 uses `approvals`). This alignment is a pre-condition for compiler integration and is tracked as a compiler handoff item.
+
 ---
 
 ## 2. Shared company context
@@ -251,7 +255,7 @@ The compiler evaluates 10.3 §2.1 rules in priority order:
 |---|---|---|
 | `flow-header` | FlowHeader (S5) | currentStep: 3. totalSteps: 3. |
 | `step-navigator` | StepNavigator (S6) | Steps 1 and 2 show completion. Step 3 active. |
-| `form-body` | SmartFormSection (C3) | sectionKey=supporting_documents. isReadOnly=true (context-only section — shows step 1+2 summary). AttachmentPanel occupies additional-content slot within this section. |
+| `form-body` | SmartFormSection (C3) | sectionKey=supporting_documents. isReadOnly=true (context-only section — shows step 1+2 summary). AttachmentPanel occupies the `additional-content` slot within this section. **GW-G3:** this slot is not yet defined in 10.5 §C3 for `isReadOnly=true` sections — tracked as spec amendment: add `additional-content` slot to C3, available when isReadOnly=true, accepting AttachmentPanel and ActivityTimeline. |
 | `attachment-panel` | AttachmentPanel (C11) | allowUpload=true. maxFiles=5 (tenant config). acceptedTypes: [pdf, xlsx, png]. Empty state: "No documents attached" with upload affordance. |
 | `action-group` | ActionPanel (C5) | Primary: "Next → Review". Secondary: "Back", "Save Draft". |
 
@@ -464,7 +468,7 @@ The compiler evaluates 10.3 §2.1 rules in priority order:
 | Slot | Component | Configuration |
 |---|---|---|
 | `page-header` | RecordHeader (C1) | displayName: "PO-1042". entityTypeBadgeLabel: "Purchase Order". statusLabel: "Pending Approval". statusSemantic: warning. KeyFactsStrip: supplier, amount, delivery date, initiator, submitted date (5 facts — `key_fact_count=5` role variant). StatusBadge (status) precedes ActionPanel in DOM order (P4, XP6, XC5). |
-| `page-header / action-group` | ActionPanel (C5) | `context=page`. Primary: "Approve" (action_approve_po). Secondary: "Reject" (action_reject_po), "Request More Info" (action_request_info). Budget: 1+2 = 3 total — no overflow. |
+| `page-header / action-group` | ActionPanel (C5) | `context=page`. Primary: "Approve" (action_approve_po). Secondary: "Reject" (action_reject_po), "Request More Info" (action_request_info). Budget: 1+2 = 3 total — no overflow. **GW-G1:** action_request_info has no defined UI outcome — seam to CommentConversationPanel is an open amendment to 10.3 P6 and 10.5 §C15. |
 | `content / approval-section` | ApprovalPanel (C9) | currentState=pending. pendingApprovers: [Finance Manager]. deadlineLabel: "Due in 32 hours". eventHistory: [submitted_by_coordinator]. Placement: `approval_history_placement=collapsible_section` (role variant — history collapsed by default; Finance Manager reviews many records and does not need to see history on every view load). |
 | `content / timeline` | ActivityTimeline (C8) | Events: [submitted_for_approval, draft_saved_x3, po_created]. maxVisible=5. Placement: `timeline_placement=inline_below_sections`. |
 | `content / attachments` | AttachmentPanel (C11) | allowUpload=false (Finance Manager cannot add attachments). Renders submitted quote attachment as view-only. |
@@ -714,7 +718,7 @@ Controls: "Confirm Approval" | "Cancel"
 |---|---|---|
 | `summary-strip` | MetricTile (S3) × 3 | sum_total_skus (142, threshold not crossed), sum_below_reorder (7, alertThresholdCrossed=true → alert indicator active), sum_pending_reorders (3). Layout: `summary_strip_layout=card_grid` user variant → SummaryCardGrid IR node (tiles in 3-column card grid instead of horizontal strip). |
 | `alert-list` | AlertList (S4) | Alert ordering: Critical (3 items) → Warning (2 items) → Informational (0). "STEEL-A42 — Below Minimum Threshold" is the first Critical item. EmptyState if no alerts: "No active alerts — all operational." (context=positive_confirmation — not blank). |
-| `tasks-section` | TaskContextPanel (C14) | taskSpec=task_reorder_approval_watch. taskInstance: 3 pending instances (aggregate). State: active. ActionPanel: "View Reorder Queue" (action_view_reorder_queue). |
+| `tasks-section` | TaskContextPanel (C14) | taskSpec=task_reorder_approval_watch. taskInstance: 3 pending instances (aggregate). State: active. ActionPanel: "View Reorder Queue" (action_view_reorder_queue). **GW-G2 aggregate mode:** only `active` and `no_task_instance` states are valid here — individual states (`blocked`, `overdue`) do not apply to aggregate counts. Amendment to 10.5 §C14. |
 | `page-header / action-group` | ActionPanel (C5) | No primary action on OverviewMonitor. |
 
 **Alert ordering invariant (10.5 §S4):** Critical → Warning → Informational ordering is invariant. The compiler must not expose this ordering as a personalization surface. No variant may change it.
@@ -731,7 +735,7 @@ Controls: "Confirm Approval" | "Cancel"
 | Slot | Component | Configuration |
 |---|---|---|
 | `page-header` | RecordHeader (C1) | displayName: "STEEL-A42 — Cold Rolled Steel Sheet A-42". entityTypeBadgeLabel: "Inventory SKU". statusLabel: "Critical — Below Threshold". statusSemantic: critical. KeyFactsStrip: current stock (23 units), minimum threshold (100 units), reorder point (150 units), last restock date, primary supplier (5 facts — within role key_fact_count range). |
-| `page-header / action-group` | ActionPanel (C5) | `context=page`. Primary: "Initiate Reorder" (action_initiate_reorder). Secondary: "Adjust Threshold" (action_adjust_threshold), "Dismiss Alert" (action_dismiss_alert). Budget: 1 primary + 2 secondary = 3 total. |
+| `page-header / action-group` | ActionPanel (C5) | `context=page`. Primary: "Initiate Reorder" (action_initiate_reorder). Secondary: "Adjust Threshold" (action_adjust_threshold), "Dismiss Alert" (action_dismiss_alert). Budget: 1 primary + 2 secondary = 3 total. **GW-G5:** on "Dismiss Alert" confirm, navigate to parent OverviewMonitor (`view_inventory_monitor`). Amendment to 10.3 P5. |
 | `content / status-banner` | StatusBanner (C4) | severity=error. message: "Current stock (23 units) is 77% below minimum threshold. Immediate reorder recommended." isPersistent=true. isDismissible=false. (System-generated; condition still active.) |
 | `content / timeline` | ActivityTimeline (C8) | Events: [stock_alert_triggered_today, stock_updated_yesterday, previous_reorder_received (3 months ago), prior_alert_dismissed]. maxVisible=5. isAIInitiated=false. Placement: `timeline_placement=inline_below_sections` (default; user has not set a preference). |
 
@@ -775,6 +779,8 @@ Controls: "Confirm Approval" | "Cancel"
 **Two-banner coexistence (post-submit):** warning (system condition, persistent) + success (action feedback, dismissible).  
 Stacking order (10.5 §C4): warning above success. 8px gap. Warning banner is nearest the top.
 
+**System-replace rule (GW-G4 — amendment to 10.5 §C4):** The persistent error banner is not dismissed and re-added — it is replaced in-place by a system event (new severity: warning, new message). The replace operation preserves the banner's stacking position and does not require user action. This is distinct from user dismissal. Amendment required: add to 10.5 §C4 composition rules — a `isPersistent=true` banner may be updated in-place by a system event with a different severity or message.
+
 ---
 
 ### 5.5 Variant surfaces exercised
@@ -784,7 +790,7 @@ Stacking order (10.5 §C4): warning above success. 8px gap. Warning banner is ne
 | `summary_strip_layout=card_grid` | Structural | User | OverviewMonitor SummaryStrip | IR transformation: SummaryStrip → SummaryCardGrid (10.4 §4.11); MetricTile instances in 3-column card grid |
 | `timeline_placement=inline_below_sections` | Emphasis | Role (default) | ExceptionResolutionView | ActivityTimeline renders inline below content sections — default; user has not set a preference |
 
-**Note on structural variant governance:** `summary_strip_layout=card_grid` is a user-scope preference. However, because it is a structural variant, it must have been pre-approved at tenant scope before a user can select it (10.4 §5.3 structural variant governance). In this projection, the tenant has approved `card_grid` as an allowed value. Without tenant approval, the user preference would be ignored and `horizontal_strip` would be used.
+**Structural variant governance:** `summary_strip_layout=card_grid` is a user-scope structural variant — it requires tenant-scope pre-approval before a user can select it (10.4 §5.3). In this projection, Apex's tenant has pre-approved this value. The full governance path trace, including the failure path, is in §6.4.
 
 ---
 
@@ -898,21 +904,61 @@ Stacking order (10.5 §C4): warning above success. 8px gap. Warning banner is ne
 | Allowed surfaces restriction (surface not in allowedSurfaces → discarded) | W1 §3.6 — `filter_placement` not in allowed surfaces |
 | `role_overrides_user` conflict policy | W2 §4.6 — `key_fact_count` user value overridden by role value |
 | `user_overrides_role` conflict policy | W3 §5.6 — `timeline_placement` user value wins |
-| Structural variant governance (tenant pre-approval required) | W3 §5.5 — `summary_strip_layout=card_grid` requires tenant approval |
+| Structural variant governance (tenant pre-approval required) | W3 §5.5 + full trace below — `summary_strip_layout=card_grid` exercises the pre-approval gate |
 | Orphan preference logging | W1 §3.6 — orphaned `filter_placement` preference logged with 5-field record |
 | Variant → IR transformation | W3 §5.5 — `summary_strip_layout=card_grid` → SummaryStrip node replaced with SummaryCardGrid |
 
+#### Structural variant governance — full path trace
+
+This is one of the most critical governance behaviors in 10.4: a user-scope structural variant selection must pass a tenant-scope pre-approval gate before it can be applied. This gate is independent of and precedes conflictPolicy evaluation.
+
+**Success path (W3 scenario):**
+
+1. Warehouse Manager sets user-scope preference: `summary_strip_layout=card_grid`
+2. `summary_strip_layout` is in `allowedSurfaces` for `pos_warehouse_manager` — eligible surface
+3. Variant type check: `card_grid` is a structural variant value (not token-driven, not emphasis)
+4. Governance gate: is `card_grid` listed in the tenant-scope approved structural variants for `summary_strip_layout`?
+5. Apex Components Ltd. tenant has pre-approved this value → gate passes
+6. conflictPolicy=`user_overrides_role` → user preference applied
+7. IR transformation fires: SummaryStrip node → SummaryCardGrid node (10.4 §4.11)
+8. OverviewMonitor renders MetricTile instances in 3-column card grid layout
+
+**Failure path (tenant has NOT pre-approved `card_grid`):**
+
+1–4 same as above
+5. Tenant has not approved `card_grid` → governance gate fails
+6. Preference discarded — conflictPolicy is not evaluated (gate precedes policy)
+7. Surface falls back to role-scope or global default: `horizontal_strip`
+8. Orphan log created: same 5-field record format as §3.6 — `reason: "structural_variant_not_tenant_approved"`
+9. User sees no error; silent fallback to default layout
+
+**Why this matters:** This path validates that structural variant governance (described in 10.4) actually functions as a separate, ordered gate — not just as a preference override. Compiler must enforce the governance check before applying any user structural variant preference, and must produce the correct orphan log on failure. This behavior had been specified in 10.4 but had not been traced end-to-end until this workflow.
+
 ### 6.5 Grammar gaps requiring follow-up
 
-| Gap ID | Description | Spec location |
-|---|---|---|
-| GW-G1 | `actionType=request_information` has no defined UI seam — no connection to CommentConversationPanel or task creation | W2-I2; 10.3 P6 open seam; 10.5 §C15 |
-| GW-G2 | TaskContextPanel aggregate mode (multiple instances as count) has no distinct state model from single-instance mode | W3-I2; 10.5 §C14 |
-| GW-G3 | AttachmentPanel in `isReadOnly=true` SmartFormSection requires an explicit `additional-content` slot in 10.5 §C3 | W1-I1; 10.5 §C3 |
-| GW-G4 | StatusBanner system-replace behavior (persistent banner updated in-place by system event) is unspecified | W3-I1; 10.5 §C4 |
-| GW-G5 | ExceptionResolutionView: post-dismiss-alert navigation target is undefined in 10.3 P5 | W3-I3; 10.3 P5 |
+Gaps are annotated inline in the relevant screen sequences with their Gap ID (e.g., **GW-G1:**). The table below summarizes each gap, its in-document location, and the required spec amendment.
 
-All five gaps are minor specification gaps — no new patterns or components are required to close them. They are amendment candidates for the next patch of 10.3 and 10.5.
+| Gap ID | Description | In-document location | Required amendment |
+|---|---|---|---|
+| GW-G1 | `actionType=request_information` has no defined UI outcome — no seam to CommentConversationPanel or task creation | W2 Screen 2 ActionPanel note | 10.3 P6: `actionType=request_information` → mounts CommentConversationPanel in compose state. 10.5 §C15 open seams: add reference. |
+| GW-G2 | TaskContextPanel aggregate mode (multiple instances as count) has no distinct state model from single-instance mode | W3 Screen 1 TaskContextPanel note | 10.5 §C14: when rendering in OverviewMonitor with aggregate data, only `active` and `no_task_instance` states are valid. |
+| GW-G3 | AttachmentPanel inside `isReadOnly=true` SmartFormSection has no declared slot | W1 Screen 4 SmartFormSection note | 10.5 §C3: add `additional-content` slot, available when `isReadOnly=true`, accepting AttachmentPanel and ActivityTimeline. |
+| GW-G4 | StatusBanner system-replace behavior (persistent banner updated in-place by system event) is unspecified | W3 Screen 4 post-submit note | 10.5 §C4 composition rules: `isPersistent=true` banner may be replaced in-place by a system event; replace preserves stacking order position. |
+| GW-G5 | ExceptionResolutionView: post-dismiss-alert navigation target is undefined | W3 Screen 2 ActionPanel note | 10.3 P5: on `action_dismiss_alert` confirm, navigate to originating view (OverviewMonitor or parent). |
+
+All five gaps are minor specification amendments — no new patterns or components are required.
+
+### 6.6 Deferred concerns — out of scope for v0
+
+These are real system concerns that surfaced during the trace but are not in scope for 10.6 or the current 10.1–10.5 grammar documents. They are tracked here for visibility.
+
+| Concern | Why it surfaced | Scope |
+|---|---|---|
+| Interaction / State Transition Model | The traces describe what happens after each action (e.g., "PO transitions to Pending Approval") but do not define the event → handler → state update → re-render pipeline. The grammar specifies what the UI grammar should express, not the runtime execution model. | Separate future document — runtime/compiler execution model. Not a UI grammar concern. |
+| Data binding and fetching layer | Component inputs are marked "runtime" throughout — but the mechanism for fetching entity data, caching, mutation, and sync is not defined. The grammar declares what data components receive; it does not specify how that data arrives. | Compiler integration / backend contract layer. Outside workstream scope. |
+| SearchResults (P4) not validated | No workflow in this set exercises the SearchResults pattern or cross-entity search. Search is cross-cutting and exercises different grammar rules than record-centric workflows. | W4 candidate for a future 10.6 revision. |
+| AI system not validated | AIAssistPanel (S2) is defined in 10.5 but not exercised. The AI suggestion lifecycle (suggestion shown → accepted / rejected → impact on business state) was not traced. | W5 candidate for a future 10.6 revision covering AI-assisted form fill or AI-generated summaries. |
+| RelatedRecordsSection and CommentConversationPanel not exercised | C10 and C15 appear in the composition matrix but are absent from these three workflows. Both would be exercised in record-centric workflows with linked entities or collaborative annotation. | W4/W5 candidates. Not critical for the core grammar validation this document provides. |
 
 ---
 
@@ -922,7 +968,7 @@ All five gaps are minor specification gaps — no new patterns or components are
 |---|---|---|
 | Representative workflows can be expressed with the patterns and components | Met | All three workflows traced end-to-end using only vocabulary from 10.1–10.5. No new patterns, components, or variant surfaces required. |
 | Usability issues are surfaced early | Met | 10 workflow-specific issues (W1-I1 through W3-I4) + 5 grammar-level gaps (GW-G1 through GW-G5). All are specification-level issues — inexpensive to fix before implementation begins. |
-| Personalization assumptions are exercised | Met | All five personalization behaviors traced: allowed surfaces restriction, role_overrides_user, user_overrides_role, structural variant governance, orphan logging. |
+| Personalization assumptions are exercised | Met | Six personalization behaviors traced: allowed surfaces restriction, role_overrides_user, user_overrides_role, structural variant governance (full path trace in §6.4 including failure path), orphan logging, and variant → IR transformation. |
 | Generator implications are visible | Met | Each workflow includes a Generator Implications table. 24 distinct compiler tasks identified. Grammar is sufficient to drive each task deterministically. |
 
 ---
