@@ -355,6 +355,7 @@ Displays a contextual system message at informational, warning, error, or succes
 - Allowed in any pattern at any level.
 - Cannot be nested inside another StatusBanner.
 - At most 2 StatusBanners per region simultaneously. Multiple banners stack vertically.
+- When two banners coexist in the same region, they render in descending severity order: error → warning → success → informational (most severe first, nearest the top). The vertical gap between stacked banners is 8px. The ordering is invariant — it must not be changed by token overrides or variant configuration.
 - Must not be used as the sole content of a modal.
 
 **Accessibility**  
@@ -812,6 +813,7 @@ Each `RelatedGroup`:
 
 **Composition rules**  
 - Allowed inside RecordPage only.
+- At most 3 RelatedGroup entries are visible by default. When more than 3 related entity types are projected, a "Show more related types" expansion control reveals the remaining groups. This parallels the KeyFactsStrip max-8 constraint: without a cap, a record with 6–8 related entity types produces a visually overwhelming section.
 - Inaccessible viewLinks must render as `<span>` (non-navigable label), not a broken `<a>` tag and not hidden (schema §4.3 rule).
 - Cannot contain ActionPanel, SmartFormSection, or ActivityTimeline.
 
@@ -881,6 +883,7 @@ Each `Attachment`:
 | `populated` | Attachment list rendered |
 | `empty` | EmptyState with upload affordance when `allowUpload=true`; without affordance when not |
 | `uploading` | Upload in progress — progress indicator per file |
+| `at_limit` | `maxFiles` reached — upload area rendered as disabled with a tooltip explaining the limit. Upload area is not hidden. This follows UX Doctrine A6: the action is unavailable but the user must understand it exists and has a prerequisite (remove a file to re-enable upload). Existing attachments remain viewable and deletable. |
 
 **Actions**
 
@@ -893,6 +896,7 @@ Each `Attachment`:
 **Composition rules**  
 - Allowed inside: RecordPage, ApprovalReviewView, CreateEditFlow, ApprovalFlow.
 - Upload action only rendered when `allowUpload=true` and the action is in `permissionsHooks.allowedActionIds`.
+- When `maxFiles` is reached the component enters `at_limit` state: the upload area transitions to disabled with a tooltip — it must not be hidden (A6 rule — the user needs to understand the limit and its prerequisite).
 - Delete is a destructive action — must use `confirmationType=inline` minimum; must be visually isolated from view action (A5).
 
 **Accessibility**  
@@ -1073,7 +1077,7 @@ Surfaces the task context relevant to the current record — task type, state, p
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `taskSpec` | TaskSpec | Required | The task type definition from the projection |
-| `taskInstance` | TaskInstance | Required (runtime) | Current state, priority, due date, assignee |
+| `taskInstance` | TaskInstance | Optional (runtime) | Current state, priority, due date, assignee. Null when no active task instance exists for this TaskSpec — occurs in OverviewMonitor pending tasks section when no instance has been created yet. |
 | `availableActions` | ActionSpec[] | Required | From TaskSpec.availableActionIds (filtered by permissions) |
 
 `TaskInstance` (runtime):
@@ -1099,11 +1103,12 @@ Surfaces the task context relevant to the current record — task type, state, p
 
 | State | Behavior |
 |---|---|
-| `loading` | Skeleton |
+| `loading` | Skeleton for all slots while TaskInstance is being fetched |
 | `active` | Task in progress — standard rendering |
 | `blocked` | Visually distinct from active — blocked indicator |
 | `completed` | Task done — read-only; no action controls |
 | `overdue` | Due date passed — visual urgency indicator on task-meta |
+| `no_task_instance` | `taskInstance` is null — renders a passive EmptyState: "No active [taskSpec.taskType]" with no action path. Used in OverviewMonitor pending tasks section when the position has a TaskSpec but no instance has been created yet. This is a passive empty (no call to action), not a primary empty. |
 
 **Actions**  
 Delegates to ActionPanel using `TaskSpec.availableActionIds`.
@@ -1317,8 +1322,8 @@ Every component meets WCAG 2.1 AA as a minimum. Accessibility properties must su
 | Seam | Connects to | Current status at v0 |
 |---|---|---|
 | React implementation of each component | Primitive Mapping and Token Strategy v0 (10.7) | Component contracts defined here; React primitives, Radix usage, and CSS token bindings defined in 10.7 |
-| `InputField` primitive (used inside SmartFormSection) | 10.7 primitive mapping | Referenced in SmartFormSection.field-group slot; field-level implementation is a 10.7 concern |
-| `StatusBadge` primitive (used in RecordHeader, RecordRow, TaskContextPanel) | 10.7 primitive mapping | Used extensively; spec deferred to 10.7 as a primitive-level component |
+| `InputField` primitive (used inside SmartFormSection) | 10.7 primitive mapping | Referenced in SmartFormSection.field-group slot; field-level implementation is a 10.7 concern. **Requirements for 10.7:** (1) required fields must carry `aria-required="true"`; (2) per-field inline error messages must be linked to their input via `aria-describedby`; (3) inputs in error state must carry `aria-invalid="true"`. These constraints are already assumed by SmartFormSection accessibility rules and ValidationSummary's `navigate-to-field` action — 10.7 must satisfy them. |
+| `StatusBadge` primitive (used in RecordHeader, RecordRow, TaskContextPanel, ApprovalPanel) | 10.7 primitive mapping | Used in four components across two semantic roles. **Requirements for 10.7:** (1) when used as an entity type badge (`role=note` per RecordHeader spec), render as `<span role="note">` with `aria-label` describing the entity classification; (2) when used as a record status badge (`role=status` per RecordHeader, TaskContextPanel, ApprovalPanel specs), render with `aria-label` that communicates the semantic meaning of the status — not just the label text; (3) the visual distinction between `role=note` (entity type) and `role=status` (record status) must not collapse under any token variant. |
 | `PersonalizationSurface.targetComponentTypes` validation | This library | Component names in 10.4 §4.12 targetComponentTypes must reference names defined here; validation active once this library is complete |
 | AI service binding for AIAssistPanel | AI service layer | Hook type and trigger declared in AIAssistHook schema (10.2 §4.13); service response format and error handling defined in AI service layer |
 | Personalization settings UI components | Deferred to 10.6 + 10.7 | SmartFormSection and ReviewSummary will be used in the settings surface; pattern choice (RecordPage variant vs AssistedSetupFlow-like) deferred to 10.6 per 10.4 §12 |
