@@ -1,6 +1,6 @@
 # Foundry UX Doctrine v0
 
-**Status:** First working draft  
+**Status:** Revised v0 — patch round 1  
 **Workstream:** UI/UX — Work Product 10.1  
 **References:** Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the governing interaction principles, rules, and invariants for all Foundry position apps.
@@ -8,6 +8,8 @@
 This document is a first-class artifact. All subsequent work products — UI pattern library, semantic component library, personalization model, primitive mapping — must be consistent with it.
 
 **Scope:** This doctrine applies to all UI patterns, flows, and components generated for position apps. It is the authority against which all pattern specifications, component designs, and regenerated releases are evaluated.
+
+**Doctrine as generation constraint:** This doctrine is both a product artifact and a generation constraint. It governs how agents and downstream compiler stages may map position-facing business intent into UI. It constrains pattern selection, approved variant selection, semantic component composition, regeneration review, and downstream evaluation gates. Any generated UI that falls outside this doctrine is invalid by default. It does not define lower-level implementation detail unless explicitly marked as invariant.
 
 ---
 
@@ -43,7 +45,7 @@ An empty view always explains why it is empty and gives the user a direct path t
 Enterprise-grade rigor means position apps can be trusted in operational business contexts: workflows are traceable, states are clear, errors can be recovered from, and approvals are first-class.
 
 **2.1 Traceability**  
-The user can see what changed, when, who initiated it, and what approved it. Activity timelines and state history are required components for any entity that participates in a business workflow.
+The user can see what changed, when, who initiated it, and what approved it. Any entity that participates in a business workflow must expose change history and state history in a consistent, reviewable form. The exact component realization belongs to pattern and semantic-component specifications.
 
 **2.2 Correctness guarantees**  
 Validation happens at both field and form levels. Submitting invalid data is prevented, not silently allowed. The system actively prevents conflicting states.
@@ -52,7 +54,7 @@ Validation happens at both field and form levels. Submitting invalid data is pre
 Approval workflows are first-class UX patterns. The user can always see what is pending, who must act, and the consequence of the approval. Approval is never an afterthought added to an existing screen.
 
 **2.4 State before action**  
-The current state of a record or workflow is always visible before action controls appear. Users do not encounter action buttons without a clear view of current state.
+See P4.
 
 **2.5 Recoverability**  
 The user can recover from errors. Where rollback is technically possible, it must be surfaced. Errors are explained in plain language that names the problem and states what to do.
@@ -60,8 +62,17 @@ The user can recover from errors. Where rollback is technically possible, it mus
 **2.6 Role-boundary enforcement**  
 Position apps do not surface actions or data the user is not authorized to access. Unauthorized items are absent, not merely disabled. Exceptions apply only when the user needs to see that an action exists but requires a prerequisite.
 
-**2.7 Auditability hooks**  
-The UX supports audit trails at all key decision and action points. Every primary action, flow completion, flow abandonment, error encounter, and empty-state view requires a telemetry hook. Telemetry is part of the component contract, not an optional addition.
+**2.7 Observability and auditability**  
+Key decision points, state transitions, flow completions, abandonments, and exceptional outcomes must be observable and auditable. Exact event schemas, hook names, and hook-key compatibility rules belong to the evaluation and instrumentation layer, not to this doctrine.
+
+**2.8 Progressive incompleteness and provisional-state UX**  
+Foundry position apps must remain usable even when the semantic slice is partial. Foundry2 explicitly assumes start-anywhere, pain-point-first, incomplete-knowledge-acceptable operation. The UX must reflect that operating model.
+
+- **Provisional state must be explicit.** Unknown, provisional, or not-yet-modeled state must be communicated clearly to the user.
+- **Unknown must not masquerade as zero, empty, complete, or approved.** The absence of data and the confirmed emptiness of data are distinct states.
+- **Partial slices must remain operable for the in-scope pain point.** A position app may be incomplete in scope; it must not be ambiguous in state.
+- **Missing downstream capability must surface a next-best action, not a dead end.** When a required downstream workflow is not yet modeled, the UI must offer the user a next-best path rather than a silent failure or blank screen.
+- **Generated UX may be incomplete in scope, but never ambiguous in state.**
 
 ---
 
@@ -95,28 +106,21 @@ Precedence applies from lowest to highest. Higher-scope settings override lower-
 3. **Role** — per-position defaults
 4. **User** — per-user saved preferences
 
-### 3.4 The invariant rule
+### 3.4 Personalization vs approved variants vs pattern migration
 
-Personalization must never change the interaction grammar. A personalized app and the default app must be semantically identical. Only presentation, emphasis, density, and saved view state may differ.
+These three categories are distinct and must not be conflated.
+
+**User personalization** is limited to approved surfaces within the current pattern and variant. It must not change the interaction grammar.
+
+**Approved pattern variants** are versioned product artifacts. They may change structure only within explicitly modeled bounds. They are not user personalization and are not governed by user preferences.
+
+**Pattern-family changes** are not personalization. A screen moving from one pattern family to another (for example, Collection View to Overview/Monitor) requires explicit versioned migration and must not occur silently across regeneration. See I4.
 
 ### 3.5 Conflict resolution
 
-Saved personalization can become invalid after a regeneration or a scope-level default change. Four scenarios must be handled explicitly.
+Personalization must be precedence-defined, migration-safe, and loss-aware. When a saved preference is invalidated by regeneration or a scope-level default change, the system must: (1) preserve what remains valid, (2) discard only what cannot be applied without producing an inconsistent state, (3) notify the user in plain language, and (4) offer a direct path to reconfigure. Silent loss of personalization is not acceptable.
 
-**Scenario A — Orphaned preference (field or filter no longer exists after regeneration)**  
-The saved preference silently refers to a field, filter dimension, or view that the regenerated model no longer exposes. Resolution: discard the orphaned portion of the preference. Do not apply it partially in a way that produces an inconsistent view. Notify the user with a plain-language explanation of what was reset and why. Offer a direct path to reconfigure.
-
-**Scenario B — Role-level default overrides a user preference**  
-A role default introduced or changed after a regeneration covers a surface that the user has already personalized. Resolution: role defaults do not retroactively overwrite user preferences unless the user preference references something that no longer exists (see Scenario A). The user's saved preference is preserved where it remains valid. If the role default introduces a new surface the user has not yet configured, the role default fills that gap.
-
-**Scenario C — Tenant default changes after regeneration**  
-A tenant-level configuration change affects defaults below it. Resolution: role and user preferences above the tenant level are preserved where still valid. The new tenant default fills any surfaces not covered by role or user preferences.
-
-**Scenario D — Structural pattern change invalidates a saved view**  
-The underlying pattern for a screen changes (for example, a Collection View becomes an Overview/Monitor). Saved view state tied to the old pattern's slots is now structurally invalid. Resolution: treat as Scenario A. Discard the view state that cannot be applied. Notify the user. Do not apply partial or mismatched view state silently.
-
-**General conflict resolution rule**  
-When a conflict cannot be resolved silently with full fidelity, the system must: (1) notify the user, (2) explain what changed in plain language, (3) preserve what is still valid, (4) offer a path to reconfigure what was reset. Silent loss of personalization is not acceptable.
+*Detailed conflict scenarios — orphaned preferences, role-override collision, tenant-default change, structural-pattern change — belong to Pattern Variability and Personalization Model v0.*
 
 ---
 
@@ -146,13 +150,13 @@ Every multi-step flow has a clear exit at every step, with explicit handling for
 Error messages name the problem, identify the field or action involved, and suggest resolution. System error codes and technical identifiers are not exposed to the user.
 
 **P8 — Consistent semantic labels**  
-The same business action uses the same label in every position app. Synonyms for the same concept are not permitted (for example, Submit, Save, and Confirm must not be used interchangeably for the same semantic action).
+The same business action uses the same label in every screen, context, and position app. Synonyms for the same concept are not permitted — Submit, Save, and Confirm must not be used interchangeably for the same semantic action. This applies within a position app and across all position apps. See also I8.
 
 **P9 — Accessibility is a floor, not a feature**  
 All patterns and components meet WCAG 2.1 AA as the minimum. Keyboard navigation, focus management, and screen reader annotations are required. Accessibility must survive regeneration.
 
-**P10 — Telemetry hooks are part of the contract**  
-Every primary action, flow completion, flow abandonment, error encounter, and empty-state view has a telemetry hook. Hook names are stable and treated as a breaking change if modified.
+**P10 — Observability**  
+Workflows and outcomes must be observable and auditable. See §2.7. Exact event schemas, hook names, and hook-key compatibility rules are instrumentation-layer concerns, not doctrine.
 
 **P11 — AI-assisted actions are explainable, reversible, and distinguishable**  
 AI-assisted actions are clearly distinguished from user-initiated actions at the point of presentation. The user can understand why the system made a suggestion, reverse any AI-initiated action, and override any AI recommendation without penalty. AI must not silently alter business state.
@@ -160,8 +164,8 @@ AI-assisted actions are clearly distinguished from user-initiated actions at the
 **P12 — User retains final control**  
 The system may guide, suggest, and recommend actions. Final decision authority remains with the user unless the user has explicitly delegated an action class to automation. Autonomous system actions that affect business state must be surfaced, logged, and reversible.
 
-**P13 — Semantic consistency across position apps**  
-The same business action carries the same semantic meaning and uses the same label across all position apps. An action that means "Submit for approval" in one position app must not be labeled or behave differently in another. Cross-position consistency is an invariant, not a goal.
+**P13 — Pattern and variant legitimacy**  
+All generated UI must resolve to an approved pattern and, where applicable, an approved variant. Structures not declared as an approved pattern or variant are invalid generation output.
 
 **Exception handling**  
 Exceptions to these principles require explicit pattern-level justification and must be declared as approved variants. An undeclared exception is a compliance failure, not a design choice.
@@ -171,7 +175,7 @@ Exceptions to these principles require explicit pattern-level justification and 
 ## 5. Default density rules
 
 **D1 — Low density by default**  
-The default density is comfortable on a 1080p or higher desktop screen. Generous spacing is the baseline. Power-user density is not the default.
+The default density is comfortable for the primary desktop operating surface. Generous spacing is the baseline. Power-user density is not the default.
 
 **D2 — Two explicit modes only**  
 Supported density modes: Default (comfortable) and Compact (higher information density). No other modes are permitted.
@@ -188,6 +192,8 @@ Lists are presented as semantic record lists, not raw spreadsheet grids. Grid-st
 ---
 
 ## 6. Action-budget rules
+
+*These are v0 doctrine-level defaults. They must be validated against pilot workflows before being treated as permanent invariants.*
 
 | Slot | Limit |
 |---|---|
@@ -238,7 +244,7 @@ Actions that are currently unavailable are hidden. Exceptions apply only when th
 
 - Forms use guided section structure, not a flat field list.
 - Required fields are clearly marked.
-- Validation triggers on field exit (blur), not only on form submit.
+- Validation should occur early enough to avoid late surprise and close enough to the affected field to support correction. Exact trigger timing belongs to the pattern specification.
 - Inline validation errors appear adjacent to the affected field, not only at the top of the form.
 - Long forms use progressive disclosure: the relevant section is expanded; the rest are collapsed or stepped.
 - Create flows and edit flows may differ in structure. Edit flows may include read-only context fields not present in create flows.
@@ -248,50 +254,25 @@ Actions that are currently unavailable are hidden. Exceptions apply only when th
 
 - Approval patterns always show: what is being approved, who initiated it, when, and why.
 - Approve and Reject actions are both visible and clearly distinct from each other.
-- Rejection always requires a reason via a text input.
+- Rejection or denial paths must capture rationale where the decision materially changes business state, auditability, or hand-off clarity. Exact input mechanics belong to the pattern specification.
 - Approval history is visible on the record.
 - Pending approvals appear in the approver's position app work surface. Email notification is supplementary, not the primary surface.
 
 ### 7.5 Exceptions
 
-Exceptions are not equal. A missing optional field, a failed payment, and a compliance flag have different urgency and require different surfacing behavior. All exceptions are classified into one of three severity tiers.
+Exceptions are not equal. All exceptions are classified into one of three severity tiers. Severity must be declared by the pattern or component specification; ad hoc severity assignment at the implementation level is not permitted.
 
-#### Severity tiers
+| Tier | Definition | Surfacing | Dismissal | Escalation | Auditability |
+|---|---|---|---|---|---|
+| **Informational** | Awareness only; no immediate action required | Inline notice or low-prominence alert on the relevant record or view | Dismissible without required action | None | Not required |
+| **Warning** | Action recommended; will have business impact if unresolved | Persistent alert on affected record and in the exception queue; includes what happened, which entity is affected, and the recommended action | Resolvable in place | Escalates to Critical after the pattern-defined window lapses | Optional |
+| **Critical** | Immediate action required; business continuity, financial integrity, or compliance at risk | Prominent on the user's primary work surface, exception queue, and affected record simultaneously; includes consequence of non-resolution and who else can act | Cannot be silently dismissed; requires explicit resolution or escalation action | Names who else can act if current user cannot | Required regardless of resolution outcome |
 
-| Tier | Definition | Business impact |
-|---|---|---|
-| **Informational** | Awareness only. No immediate action required. | None at present; monitor. |
-| **Warning** | Action recommended. Not immediately urgent but will have business impact if unresolved within a defined window. | Partial or degraded; recoverable without escalation. |
-| **Critical** | Immediate action required. Business continuity, financial integrity, or compliance is at risk. | Blocked or at risk; escalation may be required. |
-
-#### Tier behavior
-
-**Informational**
-- Surfaced as an inline notice or low-prominence alert on the relevant record or view.
-- Does not interrupt the user's current workflow.
-- Dismissible without a required action.
-- Does not appear in the primary exception work-surface queue unless the user has opted in.
-
-**Warning**
-- Surfaced as a persistent alert on the affected record and in the user's exception work-surface queue.
-- Includes: what happened, which entity is affected, and the recommended action.
-- Resolution is actionable from the exception surface without navigating away.
-- If unresolved beyond the pattern-defined window, escalates automatically to Critical.
-- After resolution, dismissed or updated in place.
-
-**Critical**
-- Surfaced prominently on the user's primary work surface, the exception queue, and the affected record simultaneously.
-- Includes: what happened, which entity is affected, the consequence of non-resolution, the recommended action, and who else can act if the current user cannot.
-- Resolution is actionable from the exception surface without navigating away.
-- Cannot be silently dismissed. Requires an explicit resolution action or an explicit escalation/hand-off action.
-- Generates an audit entry regardless of resolution outcome.
-
-#### General exception rules
+**General exception rules**
 
 - Every exception must communicate: what happened, which entity is affected, and the recommended action. This is true at all tiers.
 - Exceptions that cannot be resolved by the current user must name who can resolve them and provide a direct path to hand off.
 - After resolution, the exception is dismissed or updated in place at all surfaces where it appeared.
-- Severity must be declared by the pattern or component specification. Ad hoc severity assignment at the implementation level is not permitted.
 
 ---
 
@@ -308,23 +289,25 @@ Primary action label and semantic meaning for a given record state must remain s
 **I3 — State labels**  
 Business state labels (pending, approved, rejected, in-progress, and equivalent) must remain stable. Regeneration must not introduce synonyms or alternates.
 
-**I4 — Pattern grammar**  
-A screen regenerated as a Collection View must remain a Collection View. Pattern type is not permitted to change silently during regeneration.
+**I4 — Pattern-family stability**  
+A screen must not change pattern family silently across regeneration. Pattern-family changes require explicit versioned migration. See §3.4.
 
-**I5 — Personalization data**  
-User-saved view preferences, saved filters, and named views are user-owned data. Regeneration must not overwrite or invalidate personalization data without a migration path.
+**I5 — Personalization preservation**  
+User-saved view preferences, saved filters, and named views must be preserved where valid across regeneration, and migrated or explicitly invalidated where not. See §3.5.
 
 **I6 — Accessibility**  
 Accessibility properties — focus management, aria labels, keyboard navigation — must not be degraded between regenerations.
 
-**I7 — Telemetry hook keys**  
-Telemetry event names and hook keys remain stable between regenerations. A change in hook key is a breaking change and must be logged with a migration record.
-
-**I8 — Action budget compliance**  
+**I7 — Action budget compliance**  
 No regenerated screen may exceed the action budget defined in section 6. Automated audit of action counts is a required part of the generation evaluation pipeline.
 
-**I9 — Cross-position semantic consistency**  
-Business action labels and semantics must remain consistent across all position apps between regenerations. A change that alters the label or meaning of a shared business action in one position app without aligning all other position apps is a breaking change requiring coordinated review.
+**I8 — Cross-position semantic consistency**  
+Business action labels and semantics must remain consistent across all position apps between regenerations. A change that alters the label or meaning of a shared business action in one position app without aligning all others is a breaking change requiring coordinated review. See P8.
+
+**I9 — Provisional-state honesty**  
+Regeneration must not convert unknown, provisional, or not-yet-modeled business state into false precision, false completeness, or misleading emptiness. See §2.8.
+
+*Note: Telemetry event-name and hook-key stability is an instrumentation-layer invariant, not a doctrine-level invariant. It belongs to the evaluation and instrumentation specification.*
 
 ---
 
@@ -335,6 +318,8 @@ Foundry takes deliberate positions relative to its three primary enterprise UI r
 - **SAP Fiori**: reference for ERP semantics, role-based thinking, list/detail/task patterns, and stateful business workflows.
 - **IBM Carbon**: reference for information architecture discipline, structured layout, and content hierarchy.
 - **Microsoft Fluent**: reference for approachable interaction patterns, accessibility defaults, and familiarity for business workers.
+
+Foundry borrows rigor from all three without inheriting big-bang rollout assumptions. Progressive, pain-point-first adoption is a design premise, not a migration choice.
 
 ### 9.1 Comparative delta matrix
 
@@ -352,6 +337,7 @@ Foundry takes deliberate positions relative to its three primary enterprise UI r
 | Mobile | Responsive but not mobile-first | Responsive grid; not mobile-first | Moderate mobile consideration | Explicitly scoped to approve/monitor/assist |
 | Interaction tone | Enterprise formal | Enterprise structured | Familiar; Office-adjacent | Approachable; consumer-grade ease |
 | Accessibility | Partial; improving | Strong foundation | Strong by design | Required floor at WCAG 2.1 AA |
+| Adoption model | Big-bang module deployment | Admin-governed rollout | Suite-wide deployment | Pain-point-first; progressive semantic slices |
 
 ### 9.2 SAP Fiori — keep / change / discard
 
@@ -421,20 +407,23 @@ All subsequent specifications in this workstream — UI patterns, semantic compo
 | Is there one primary action? | P1, A1 |
 | Is the action budget within limit? | P2, section 6 |
 | Does the user see state before action? | P4 |
-| Is search immediately visible where required? | P3, 7.1 |
-| Are all error messages in plain language? | P7, 7.3 |
-| Is progressive disclosure applied? | 1.4, D3 |
-| Is the empty state communicative with an action path? | 1.7, 7.1 |
-| Are approvals first-class? | 2.3, 7.4 |
+| Is search immediately visible where required? | P3, §7.1 |
+| Are all error messages in plain language? | P7, §7.3 |
+| Is progressive disclosure applied? | §1.4, D3 |
+| Is the empty state communicative with an action path? | §1.7, §7.1 |
+| Are approvals first-class? | §2.3, §7.4 |
 | Is density compliant with default or compact mode? | section 5 |
 | Does personalization stay within bounded surfaces? | section 3 |
+| Are user personalization, approved variants, and pattern migration clearly distinguished? | §3.4 |
 | Does this survive the regeneration invariants? | section 8 |
+| Is incomplete or provisional business state made explicit without false precision? | §2.8, I9 |
+| Does the generated UI resolve only to approved patterns and approved variants? | P13 |
 | Is the Foundry delta from Fiori maintained? | §9.2 |
 | Is the Carbon information architecture contribution applied correctly? | §9.3 |
 | Is the Fluent approachability contribution applied correctly? | §9.4 |
 | Is the AI action explainable, reversible, and distinguishable? | P11 |
 | Does the user retain final control? | P12 |
-| Are semantic labels consistent across all position apps? | P13, I9 |
+| Are semantic labels consistent within and across all position apps? | P8, I8 |
 | If a personalization preference is invalidated, is conflict resolution applied? | §3.5 |
 | Is each exception assigned a severity tier? | §7.5 |
 | Is Critical exception behavior non-dismissible and audit-logged? | §7.5 |
@@ -442,4 +431,4 @@ All subsequent specifications in this workstream — UI patterns, semantic compo
 
 ---
 
-*This document is version 0. It is the first executable version sufficient to evaluate subsequent work products. It is expected to be refined as the pattern library and component library are validated against real workflows.*
+*This document is version 0, patch round 1. It supersedes the first working draft. All subsequent work products should be evaluated against this revised version.*
