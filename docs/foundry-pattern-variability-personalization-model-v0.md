@@ -173,6 +173,24 @@ Special cases:
 **Fallback behavior:**
 When no scope has a configuration for a surface, the pattern's built-in default behavior applies. The pattern default is the pattern's own baseline from 10.3 — it is not a global configuration value. If the global default must deviate from the pattern baseline, it must be explicitly set at global scope.
 
+### 3.4 Cross-position variant consistency
+
+Variant values are per-position by default. Different positions within the same tenant may have different variant values for the same variant id. This is correct and intentional — variant values govern presentation, not semantics. UX Doctrine I9 (cross-position semantic consistency) governs action labels and semantics, not presentation variants.
+
+The rules are:
+
+**Role-scope variants (emphasis or structural):**
+Each position independently declares its value. Position A may have `key_fact_count=3` and Position B may have `key_fact_count=4`. No cross-position review is required. These are position-specific presentation decisions.
+
+**Tenant-scope structural variants:**
+A tenant-scope structural variant is a single tenant-level setting that applies uniformly to all positions within the tenant. A tenant cannot have `autosave=enabled` for one position and `autosave=disabled` for another — the tenant-scope value propagates to all positions unless a role-scope override exists for a specific position. Role-scope values for the same variant id override the tenant-scope value for that position only, following the precedence algorithm (§3.3).
+
+**Variant values and I9:**
+Variant values never affect action labels or action semantics, so they cannot violate I9 by definition. However, a proposed structural variant that would alter how an action is presented or labeled in a way that differs across positions would constitute a design error, not a variant — it would be redesigned before approval (§8.2).
+
+**When cross-position review is warranted:**
+If a tenant-scope structural variant is applied to a pattern that appears in more than three positions, the workstream owner should review whether the variant value produces a coherent tenant-wide experience. This review is advisory, not a blocking gate — coherence is a quality concern, not a compliance requirement.
+
 ---
 
 ## 4. Approved variant registry
@@ -352,7 +370,7 @@ Token-driven variation does not appear in the approved variant registry (§4) be
 ### 5.2 Scope of token configuration
 
 - Users do not set token values directly. Token variation is resolved from global → tenant → role using the precedence algorithm (§3.3).
-- Density mode preference (`density_mode` surface type) maps to the `spacing.density.default` or `spacing.density.compact` token set. Switching density mode is a surface preference, not a token override — it resolves to a pre-built token set.
+- Density mode preference (`density_mode` surface type) maps to the `spacing.density.default` or `spacing.density.compact` token set. Switching density mode is a surface preference, not a token override — it resolves to a pre-built token set. The implementation path is: user sets a `density_mode` preference in the preference store (view-state layer) → at render time the preference service reads the stored value → the UI resolves the named mode to the corresponding pre-built spacing token set. Implementers must not treat this as a direct token mutation; the token values themselves do not change, only which pre-built set is active.
 - Role-level token configuration is limited to selecting a pre-approved theme or density default from a constrained set — not setting arbitrary token values.
 
 ### 5.3 What tokens cannot change
@@ -501,9 +519,20 @@ For each preference P in stored_preferences:
   DISCARD (full)
     Remove the entire preference record.
     Apply the conflictPolicy from PersonalizationHooks:
-      preserve_user: silently discard — implementation must log; no user notification
+      preserve_user: silently discard — implementation must log per minimum log schema below; no user notification
       reset_to_role: discard; apply the role-scope default for this surface
       notify_and_preserve: discard; notify user (see §7.2); apply role-scope default
+
+    Minimum log record for preserve_user discard (all five fields required):
+      {
+        positionId:   string  — from PositionIdentity.positionId
+        userId:       string  — runtime user identity
+        viewId:       string  — from ViewSpec.viewId (or null if view was removed)
+        surfaceId:    string  — from PersonalizationSurface.surfaceId
+        reason:       enum    — one of: view_removed | surface_removed | field_orphaned |
+                                        variant_removed | pattern_changed | structural_stale
+      }
+    The orphaned value itself must not be logged (may contain user data). Log the reason only.
 
   DISCARD (partial)
     Remove only the orphaned portion. Retain the valid remainder.
@@ -769,7 +798,7 @@ Structural variants require all tests from §11.1 plus:
 | Structural variant IR branches | Compiler intermediate representation | Variant ids and types defined here; IR node tree branches defined in 10.3 output contracts; IR compilation targets are a compiler workstream concern |
 | Component-level personalization surfaces | Semantic Component Library v0 (10.5) | Component types referenced in PersonalizationSurface.targetComponentTypes; component-level variant surfaces will be defined in 10.5 and must be consistent with this model |
 | Conflict resolution notification UI | StatusBanner or notification system | Notification requirements defined here (§7.2); StatusBanner component spec defined in 10.5 |
-| Personalization settings UI | A dedicated settings surface within the position app | Not modeled at v0; the surface is acknowledged as necessary; pattern and entry point are out of scope until 10.6 workflow prototypes |
+| Personalization settings UI | A dedicated settings surface within the position app | Not modeled at v0; the surface is acknowledged as necessary; pattern and entry point are deferred to 10.6 workflow prototypes. Likely candidates: a RecordPage variant (for viewing and editing saved preferences as a structured record) or a lightweight AssistedSetupFlow-style settings flow (for guided reconfiguration). 10.5 authors specifying configuration-related components (SmartFormSection, ReviewSummary, ConfigurationField renderers) should plan for both candidates until 10.6 resolves the pattern choice. |
 | Tenant admin configuration | Admin portal for tenant-scope variant and token configuration | Tenant scope declared here (§3.1); admin UI is outside the UI/UX workstream scope |
 
 ---
