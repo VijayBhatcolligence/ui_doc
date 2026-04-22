@@ -694,4 +694,498 @@ WorkSurface is split into two parts: **NavigationSpec** (how the user moves betw
 
 ---
 
+## Complete assembled PositionProjection JSON
+
+This is the single JSON object the compiler produces for the Procurement Coordinator at Apex Components Ltd. This is exactly what the UI generator receives and reads to build the position app — nothing more, nothing less.
+
+```json
+{
+  "identity": {
+    "positionId": "proc-coord-apex-001",
+    "positionTitle": "Procurement Coordinator",
+    "positionSlug": "procurement-coordinator",
+    "tenantId": "apex-components",
+    "boundedContextId": "bc-procurement",
+    "orgUnit": "Supply Chain",
+    "positionVersion": "1.0.0"
+  },
+
+  "workSurface": {
+    "navigation": {
+      "defaultLandingViewId": "view-po-list",
+      "navStyle": "sidebar",
+      "navItems": [
+        {
+          "viewId": "view-po-list",
+          "navLabel": "Purchase Orders",
+          "navOrder": 1,
+          "navIcon": "document-list",
+          "isHiddenFromNav": false
+        },
+        {
+          "viewId": "view-po-overview",
+          "navLabel": "Overview",
+          "navOrder": 2,
+          "navIcon": "dashboard",
+          "isHiddenFromNav": false
+        },
+        {
+          "viewId": "view-create-po",
+          "navLabel": null,
+          "navOrder": null,
+          "navIcon": null,
+          "isHiddenFromNav": true
+        }
+      ]
+    },
+    "views": [
+      {
+        "viewId": "view-po-list",
+        "pattern": "CollectionView",
+        "patternVariant": null,
+        "primaryEntityType": "PurchaseOrder",
+        "patternInputBinding": {
+          "patternType": "CollectionView",
+          "entityTypeRef": {
+            "entityType": "PurchaseOrder",
+            "displayNameTemplate": "{{po_number}} — {{supplier_name}}",
+            "viewLink": "view-po-detail"
+          },
+          "listSourceDescription": "All purchase orders created by or assigned to this position, filtered by data policy",
+          "filterSources": [
+            { "filterKey": "status",       "filterLabel": "Status",       "filterType": "status",     "isDefaultVisible": true  },
+            { "filterKey": "supplier",     "filterLabel": "Supplier",     "filterType": "select",     "isDefaultVisible": true  },
+            { "filterKey": "created_date", "filterLabel": "Created Date", "filterType": "date_range", "isDefaultVisible": false }
+          ],
+          "actionSlots": {
+            "primaryActionId":   "action-create-po",
+            "secondaryActionIds": ["action-bulk-export"],
+            "overflowActionIds":  [],
+            "bulkActionIds":      ["action-bulk-cancel"]
+          }
+        },
+        "layoutHints": null,
+        "accessConditionHookId": null
+      },
+      {
+        "viewId": "view-po-detail",
+        "pattern": "RecordPage",
+        "patternVariant": null,
+        "primaryEntityType": "PurchaseOrder",
+        "patternInputBinding": {
+          "patternType": "RecordPage",
+          "entityTypeRef": {
+            "entityType": "PurchaseOrder",
+            "displayNameTemplate": "PO {{po_number}}",
+            "viewLink": "view-po-detail"
+          },
+          "actionSlots": {
+            "primaryActionId":    "action-submit-po",
+            "secondaryActionIds": ["action-edit-po", "action-cancel-po"],
+            "overflowActionIds":  [],
+            "bulkActionIds":      []
+          }
+        },
+        "layoutHints": {
+          "primaryRegion": "PO Details",
+          "sidebarRegion": "Context and Tasks",
+          "headerRegion":  "PO Summary",
+          "groupedSections": [
+            {
+              "groupKey": "po-basics",
+              "groupLabel": "Order Details",
+              "sectionKeys": ["po_number", "supplier", "required_date"],
+              "isCollapsedByDefault": false
+            },
+            {
+              "groupKey": "line-items",
+              "groupLabel": "Line Items",
+              "sectionKeys": ["line_items"],
+              "isCollapsedByDefault": false
+            },
+            {
+              "groupKey": "shipping",
+              "groupLabel": "Delivery and Shipping",
+              "sectionKeys": ["delivery_address", "shipping_method"],
+              "isCollapsedByDefault": true
+            }
+          ]
+        },
+        "accessConditionHookId": null
+      },
+      {
+        "viewId": "view-po-overview",
+        "pattern": "OverviewMonitor",
+        "patternVariant": null,
+        "primaryEntityType": null,
+        "patternInputBinding": {
+          "patternType": "OverviewMonitor",
+          "actionSlots": {
+            "primaryActionId":    "action-create-po",
+            "secondaryActionIds": [],
+            "overflowActionIds":  [],
+            "bulkActionIds":      []
+          }
+        },
+        "layoutHints": null,
+        "accessConditionHookId": null
+      },
+      {
+        "viewId": "view-create-po",
+        "pattern": "CreateEditFlow",
+        "patternVariant": null,
+        "primaryEntityType": "PurchaseOrder",
+        "patternInputBinding": {
+          "patternType": "CreateEditFlow",
+          "entityTypeRef": {
+            "entityType": "PurchaseOrder",
+            "displayNameTemplate": "New Purchase Order",
+            "viewLink": null
+          },
+          "actionSlots": {
+            "primaryActionId":    "action-create-po",
+            "secondaryActionIds": [],
+            "overflowActionIds":  [],
+            "bulkActionIds":      []
+          }
+        },
+        "layoutHints": {
+          "primaryRegion": null,
+          "sidebarRegion": null,
+          "headerRegion":  null,
+          "groupedSections": [
+            {
+              "groupKey": "supplier-step",
+              "groupLabel": "Select Supplier",
+              "sectionKeys": ["supplier_id", "supplier_contact"],
+              "isCollapsedByDefault": false
+            },
+            {
+              "groupKey": "items-step",
+              "groupLabel": "Add Items",
+              "sectionKeys": ["line_items", "total_amount"],
+              "isCollapsedByDefault": false
+            },
+            {
+              "groupKey": "delivery-step",
+              "groupLabel": "Delivery Details",
+              "sectionKeys": ["required_date", "delivery_address", "shipping_notes"],
+              "isCollapsedByDefault": false
+            }
+          ]
+        },
+        "accessConditionHookId": null
+      }
+    ]
+  },
+
+  "actions": [
+    {
+      "actionId": "action-create-po",
+      "actionType": "CreatePurchaseOrder",
+      "label": "Create Purchase Order",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [],
+      "requiredInputs": [
+        { "fieldKey": "supplier_id",  "fieldLabel": "Supplier",     "inputType": "select",      "isRequired": true, "validationRules": ["Must be an approved supplier"] },
+        { "fieldKey": "line_items",   "fieldLabel": "Line Items",   "inputType": "multiselect", "isRequired": true, "validationRules": ["At least one line item required"] },
+        { "fieldKey": "required_date","fieldLabel": "Required By",  "inputType": "date",        "isRequired": true, "validationRules": ["Must be at least 3 business days from today"] }
+      ],
+      "confirmationType": "none",
+      "isDestructive": false,
+      "requiresApproval": false,
+      "postActionBehavior": "navigateTo",
+      "postActionNavigateToViewId": "view-po-detail",
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.create_purchase_order"
+    },
+    {
+      "actionId": "action-submit-po",
+      "actionType": "SubmitPurchaseOrderForApproval",
+      "label": "Submit for Approval",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [
+        {
+          "conditionDescription": "PO must be in Draft status",
+          "displayWhenNotMet": "disable_with_tooltip",
+          "tooltipText": "This PO has already been submitted or is not in draft state"
+        }
+      ],
+      "requiredInputs": [],
+      "confirmationType": "inline",
+      "isDestructive": false,
+      "requiresApproval": true,
+      "postActionBehavior": "stay",
+      "postActionNavigateToViewId": null,
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.submit_po_for_approval"
+    },
+    {
+      "actionId": "action-edit-po",
+      "actionType": "EditPurchaseOrder",
+      "label": "Edit",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [
+        {
+          "conditionDescription": "PO must be in Draft or Rejected status",
+          "displayWhenNotMet": "hide",
+          "tooltipText": null
+        }
+      ],
+      "requiredInputs": [],
+      "confirmationType": "none",
+      "isDestructive": false,
+      "requiresApproval": false,
+      "postActionBehavior": "navigateTo",
+      "postActionNavigateToViewId": "view-create-po",
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.edit_purchase_order"
+    },
+    {
+      "actionId": "action-cancel-po",
+      "actionType": "CancelPurchaseOrder",
+      "label": "Cancel PO",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [
+        {
+          "conditionDescription": "PO must not be in Completed or already Cancelled status",
+          "displayWhenNotMet": "hide",
+          "tooltipText": null
+        }
+      ],
+      "requiredInputs": [
+        {
+          "fieldKey": "cancellation_reason",
+          "fieldLabel": "Reason for Cancellation",
+          "inputType": "textarea",
+          "isRequired": true,
+          "validationRules": ["Minimum 10 characters"]
+        }
+      ],
+      "confirmationType": "full",
+      "isDestructive": true,
+      "requiresApproval": false,
+      "postActionBehavior": "navigateTo",
+      "postActionNavigateToViewId": "view-po-list",
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.cancel_purchase_order"
+    },
+    {
+      "actionId": "action-bulk-cancel",
+      "actionType": "BulkCancelPurchaseOrders",
+      "label": "Cancel Selected",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [],
+      "requiredInputs": [],
+      "confirmationType": "full",
+      "isDestructive": true,
+      "requiresApproval": false,
+      "postActionBehavior": "stay",
+      "postActionNavigateToViewId": null,
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.bulk_cancel_purchase_orders"
+    },
+    {
+      "actionId": "action-bulk-export",
+      "actionType": "ExportPurchaseOrders",
+      "label": "Export",
+      "targetEntityType": "PurchaseOrder",
+      "preconditions": [],
+      "requiredInputs": [],
+      "confirmationType": "none",
+      "isDestructive": false,
+      "requiresApproval": false,
+      "postActionBehavior": "stay",
+      "postActionNavigateToViewId": null,
+      "aiAssistHookIds": [],
+      "telemetryKey": "procurement_coordinator.export_purchase_orders"
+    }
+  ],
+
+  "permissionsHooks": {
+    "permissionsVersion": "opa-policy-v2.1",
+    "allowedActionIds": [
+      "action-create-po",
+      "action-submit-po",
+      "action-edit-po",
+      "action-cancel-po",
+      "action-bulk-cancel",
+      "action-bulk-export"
+    ],
+    "visibleEntityTypes": ["PurchaseOrder", "Supplier", "Product"],
+    "dataFilterPolicies": [
+      {
+        "policyId": "policy-own-pos-only",
+        "description": "Show only POs created by or assigned to this user or their team",
+        "appliesTo": "PurchaseOrder"
+      }
+    ],
+    "conditionalAccessHooks": [
+      {
+        "hookId": "cond-po-edit-access",
+        "description": "Edit is available only when PO is in Draft or Rejected status",
+        "evaluationTiming": "runtime"
+      }
+    ]
+  },
+
+  "defaultViewHints": {
+    "defaultLandingViewId": "view-po-list",
+    "defaultDensityMode": "default",
+    "defaultSortSpecs": [
+      { "viewId": "view-po-list", "fieldKey": "created_date", "direction": "desc" }
+    ],
+    "defaultFilterSpecs": [
+      { "viewId": "view-po-list", "fieldKey": "status", "filterDescription": "Open — excludes Completed and Cancelled" }
+    ],
+    "defaultExpandedSections": [
+      { "viewId": "view-po-detail", "sectionKey": "po-basics" }
+    ],
+    "pinnedSummaryIds": ["summary-open-pos", "summary-pending-approval"]
+  },
+
+  "personalizationHooks": {
+    "allowedSurfaces": [
+      {
+        "surfaceId": "surface-density",
+        "surfaceType": "density_mode",
+        "scope": "user",
+        "description": "Switch between comfortable and compact density",
+        "isStructuralVariant": false,
+        "targetViewIds": [],
+        "targetComponentTypes": [],
+        "configurationSchema": [
+          {
+            "fieldKey": "density",
+            "fieldLabel": "Display Density",
+            "valueType": "enum",
+            "allowedValues": ["default", "compact"],
+            "defaultValue": "default"
+          }
+        ]
+      },
+      {
+        "surfaceId": "surface-saved-filter",
+        "surfaceType": "saved_filter",
+        "scope": "user",
+        "description": "Save and recall custom filter combinations on the Purchase Orders list",
+        "isStructuralVariant": false,
+        "targetViewIds": ["view-po-list"],
+        "targetComponentTypes": ["FilterRail"],
+        "configurationSchema": []
+      },
+      {
+        "surfaceId": "surface-po-list-style",
+        "surfaceType": "structural_variant",
+        "scope": "tenant",
+        "description": "Switch the PO list between semantic record list and compact grid",
+        "isStructuralVariant": true,
+        "targetViewIds": ["view-po-list"],
+        "targetComponentTypes": ["RecordList"],
+        "configurationSchema": [
+          {
+            "fieldKey": "list_style",
+            "fieldLabel": "List Style",
+            "valueType": "enum",
+            "allowedValues": ["semantic_list", "compact_grid"],
+            "defaultValue": "semantic_list"
+          }
+        ]
+      }
+    ],
+    "conflictPolicy": "notify_and_preserve"
+  },
+
+  "completeness": {
+    "sliceStatus": "partial",
+    "resolvedCapabilities": ["tasks", "approvals", "stateSummaries"],
+    "deferredCapabilities": ["alerts", "decisions"],
+    "outOfScopeCapabilities": ["collaborators", "monitoredEntities"]
+  },
+
+  "tasks": [
+    {
+      "taskSpecId": "task-follow-up-delivery",
+      "taskType": "FollowUpDelivery",
+      "titleTemplate": "Follow up on delivery for {{po_number}}",
+      "entityTypeRef": {
+        "entityType": "PurchaseOrder",
+        "displayNameTemplate": "PO {{po_number}} — {{supplier_name}}",
+        "viewLink": "view-po-detail"
+      },
+      "stateModel": ["open", "in_progress", "resolved", "cancelled"],
+      "priorityLevels": ["low", "normal", "high", "urgent"],
+      "hasDueDate": true,
+      "availableActionIds": ["action-cancel-po"],
+      "aiAssistHookIds": []
+    },
+    {
+      "taskSpecId": "task-review-quote",
+      "taskType": "ReviewSupplierQuote",
+      "titleTemplate": "Review quote from {{supplier_name}}",
+      "entityTypeRef": null,
+      "stateModel": ["open", "accepted", "rejected"],
+      "priorityLevels": ["low", "normal", "high"],
+      "hasDueDate": true,
+      "availableActionIds": ["action-create-po"],
+      "aiAssistHookIds": []
+    }
+  ],
+
+  "approvals": [
+    {
+      "approvalSpecId": "approval-po-standard",
+      "approvalType": "PurchaseOrderApproval",
+      "subjectEntityType": "PurchaseOrder",
+      "thisPositionRole": "initiator",
+      "requiredApproverPositionIds": ["finance-manager"],
+      "approvalDeadlineHours": 48,
+      "showConsequenceOnReview": true,
+      "rejectionRequiresReason": true,
+      "approvalHistoryVisible": true,
+      "linkedActionId": "action-submit-po",
+      "linkedViewId": null
+    }
+  ],
+
+  "stateSummaries": [
+    {
+      "summaryId": "summary-open-pos",
+      "summaryType": "count",
+      "label": "Open Purchase Orders",
+      "entityType": "PurchaseOrder",
+      "filterDescription": "Status is Open or Draft",
+      "alertThreshold": null,
+      "linkedViewId": "view-po-list",
+      "displayOrder": 1
+    },
+    {
+      "summaryId": "summary-pending-approval",
+      "summaryType": "count",
+      "label": "Pending Approval",
+      "entityType": "PurchaseOrder",
+      "filterDescription": "Status is Pending Approval",
+      "alertThreshold": {
+        "thresholdDescription": "More than 5 POs waiting over 24 hours",
+        "severity": "warning"
+      },
+      "linkedViewId": "view-po-list",
+      "displayOrder": 2
+    },
+    {
+      "summaryId": "summary-committed-spend",
+      "summaryType": "amount",
+      "label": "Committed This Month",
+      "entityType": "PurchaseOrder",
+      "filterDescription": "Approved POs created in the current calendar month",
+      "alertThreshold": null,
+      "linkedViewId": null,
+      "displayOrder": 3
+    }
+  ]
+}
+```
+
+---
+
 *This document is a companion example to Foundry Position Projection Schema v0 (Work Product 10.2). It is not normative — the schema document is authoritative. This example exists to make every field concrete and to show the reasoning behind each value choice.*
