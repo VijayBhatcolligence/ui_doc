@@ -671,7 +671,7 @@ The UI generator uses this section to distinguish between three states for any a
 - If `sliceStatus=full`, `deferredCapabilities` must be empty or absent.
 - `sliceStatus=provisional` signals that field names, state labels, and action semantics in the entire projection may change. The generator must render the app in a provisional frame consistent with UX Doctrine §2.8.
 - An extension section that is absent from the projection and not declared in `deferredCapabilities` or `outOfScopeCapabilities` is treated as deferred by the generator. The generator must not assume it is definitively absent.
-- The union of `resolvedCapabilities`, `deferredCapabilities`, and `outOfScopeCapabilities` should account for all known extension section names. Unknown sections fall back to deferred treatment.
+- The union of `resolvedCapabilities`, `deferredCapabilities`, and `outOfScopeCapabilities` should account for all known extension section names; if any known extension section name is absent from all three lists, the generator emits a compilation warning and treats the section as deferred. Unknown sections fall back to deferred treatment.
 
 ---
 
@@ -789,6 +789,7 @@ Integration points where other Foundry layers connect. Identified here to preven
 | `fieldKey` values in KeyFactSpec, SortSpec, FilterSourceSpec | Semantic entity field model | Field keys named here; field types and validation live in semantic layer |
 | Cross-projection action label registry | Compiler layer | Tenant-scoped `actionType → canonical label` index enforced at compile time. Declared as a constraint in §4.8; registry mechanism is a compiler-layer design concern pending compiler workstream. |
 | Event and lifecycle modeling | Future event/lifecycle layer | Not modeled in this schema at v0. Events, lifecycle hooks, and state-transition triggers are an open seam for a future extension. AlertSpec covers exception surfacing; deeper event modeling (EventStorming-derived) is out of scope until after 10.3 is complete. |
+| `completeness.sliceStatus` origin | Semantic normalization step | The `sliceStatus` value (full / partial / provisional) is determined by the semantic normalization step based on which capabilities of the semantic slice have been fully validated. The schema declares the field; the normalization step populates it. This is the authoritative source — the UI layer consumes it read-only. |
 | Provenance | Provenance layer | Every projection change should carry provenance; captured externally — not in this schema |
 | Alert escalation execution | Workflow/orchestration layer (Temporal) | `warningEscalationHours` declared here; escalation execution handled by orchestration layer |
 
