@@ -1,11 +1,13 @@
 # Foundry UI Pattern Library v0
 
-**Status:** First working draft  
+**Status:** Revised v0 — patch round 1  
 **Workstream:** UI/UX — Work Product 10.3  
 **References:** Foundry UX Doctrine v0, Foundry Position Projection Schema v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the authoritative specification for all UI patterns available to the generator when composing position apps.
 
 This library is the vocabulary the compiler uses to select and compose screens and flows. Every `ViewSpec.pattern` value in the Position Projection Schema must resolve to a pattern defined here. The `PatternInputBinding` declared per view is validated against the required inputs defined in each pattern spec.
+
+This library is a **compiler constraint**, not reference documentation. A pattern that does not appear here cannot be used by the generator — the generator has no authority to invent patterns outside this vocabulary. Every pattern name, approved variant, and invariant defined here is enforced at compile time against the Position Projection Schema. Changes to this library that add or rename patterns are breaking changes to the schema.
 
 ---
 
@@ -135,6 +137,31 @@ Flow patterns (F1–F4) supplement the standard lifecycle with two step-level st
 
 ---
 
+## 2.4 Structural variant registry
+
+This section is the authoritative registry for all structural variants across all patterns in this library. The Position Projection Schema §4.15 and composition rule C12 require that any `PersonalizationSurface` with `isStructuralVariant=true` validate against this registry. A structural variant not listed here cannot be used in a projection — its presence is a compile-time error.
+
+**Scope constraint:** All structural variants are restricted to `scope=tenant` or `scope=role`. `scope=user` is not permitted for any structural variant in this registry. This enforces UX Doctrine §3.4: structural variants are approved product artifacts versioned by the compiler, not user personalization preferences.
+
+| Pattern | Variant name | Description | Permitted scope |
+|---|---|---|---|
+| CollectionView (P1) | `list_style` | Semantic record list (default) vs compact grid | tenant, role |
+| RecordPage (P2) | `sidebar_position` | Right sidebar (default) vs below content | tenant, role |
+| OverviewMonitor (P3) | `summary_strip_layout` | Tile row (default) vs card grid | tenant, role |
+| ExceptionResolutionView (P5) | `exception_list_mode` | Single exception (default) vs list with drill-in | tenant, role |
+| CreateEditFlow (F1) | `form_layout` | Single-section (default for short forms) vs stepped multi-section | tenant, role |
+| CreateEditFlow (F1) | `autosave` | Disabled (default) vs enabled (requires backend support) | tenant, role |
+| ApprovalFlow (F2) | `approver_selection` | Pre-filled (default) vs user-selectable from approved set | tenant, role |
+| AssistedSetupFlow (F4) | `ai_assist_mode` | Suggestions only (default) vs auto-fill with explicit review step | tenant, role |
+
+**How this registry is used at compile time:**
+- The compiler validates every `PersonalizationSurface` with `isStructuralVariant=true` against this table by pattern and `surfaceType` (variant name).
+- The compiler validates that `PersonalizationSurface.scope` is `tenant` or `role` for all entries here — `scope=user` on any structural variant is a compile-time schema error (C12).
+- Structural variants absent from this registry are rejected at compile time, not silently ignored.
+- Adding a new structural variant to any pattern requires a corresponding entry in this registry before the pattern variant can be referenced in a projection.
+
+---
+
 ## 3. Page patterns
 
 ---
@@ -229,6 +256,7 @@ Display a navigable, searchable, filterable list of records of a single entity t
 - Active filter count shown whenever filters are applied (§7.2).
 - Empty states are always communicative with an action path (UX Doctrine 1.7).
 - Telemetry hooks required on: row click, primary action, bulk action, search submit, filter apply, empty state view (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -238,6 +266,8 @@ Display a navigable, searchable, filterable list of records of a single entity t
 | `filter_placement` | Emphasis variant | Rail sidebar (default) vs inline chip bar |
 | `row_density` | Density mode | Default vs compact (D2) |
 | `key_fact_count` | Emphasis variant | 2, 3, or 4 facts per row |
+
+> **Structural variant scope:** The `list_style` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -371,6 +401,7 @@ The exact state model and its primary action mapping come from the entity's Task
 - Back navigation returns to originating view preserving list state (I1).
 - Approval history visible on any record in an ApprovalSpec (§7.4, ApprovalSpec.approvalHistoryVisible).
 - Telemetry hooks required on: primary action, secondary actions, section expand/collapse, related record navigation (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -381,6 +412,8 @@ The exact state model and its primary action mapping come from the entity's Task
 | `key_fact_count` | Emphasis variant | 4–8 facts in the header KeyFactsStrip |
 | `timeline_placement` | Emphasis variant | Inline below sections (default) vs tab |
 | `header_density` | Density mode | Default vs compact (D2) |
+
+> **Structural variant scope:** The `sidebar_position` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -504,6 +537,7 @@ Provide the position holder a high-level operational dashboard of their work dom
 - Summary tiles always link to their related view when `StateSummarySpec.linkedViewId` is present.
 - Summary strip is capped at 8 tiles. If the position projection defines more than 8 `StateSummarySpec` entries, the generator selects the 8 with lowest `displayOrder` values and emits a compile warning listing the omitted entries. This is a compile-time check.
 - Telemetry hooks required on: tile click, alert item click, task item click, AI insight view (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -513,6 +547,8 @@ Provide the position holder a high-level operational dashboard of their work dom
 | `alert_list_position` | Emphasis variant | Below summary (default) vs sidebar |
 | `ai_panel_visibility` | User preference | Hidden (default) vs visible |
 | `pinned_summaries` | View-state personalization | Which tiles are pinned per user |
+
+> **Structural variant scope:** The `summary_strip_layout` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -620,6 +656,7 @@ Present the results of a cross-entity or cross-view search. The primary entry pa
 - No-results state is always communicative — never a blank page.
 - **Partial-access results:** When search results span entity types the user has mixed access to (per `permissionsHooks`), the pattern renders only the records the user is permitted to see. Inaccessible records are silently omitted — their count and existence are not disclosed. The no-results EmptyState is shown only when the accessible result set is empty; it must not reference the total result count.
 - Telemetry hooks required on: search submit, result click, scope change, no-results view (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -740,6 +777,7 @@ Surface one or more active exceptions in a focused context that allows the posit
 - When `resolvableByThisPosition=false`, escalation target is always named (§7.5).
 - `generateAuditEntry=true` for Critical exceptions is enforced at compile time (schema C5).
 - Telemetry hooks required on: resolution action, escalation action, back without resolution (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -748,6 +786,8 @@ Surface one or more active exceptions in a focused context that allows the posit
 | `context_section_depth` | Emphasis variant | 3 facts (minimal) vs 6 facts (standard) |
 | `timeline_inclusion` | Emphasis variant | Hidden (default) vs inline |
 | `exception_list_mode` | Structural variant | Single exception (default) vs list of exceptions with drill-in |
+
+> **Structural variant scope:** The `exception_list_mode` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -859,6 +899,7 @@ Present a single approval request in full context so the approver can understand
 - Approval history is always visible (§7.4; ApprovalSpec.approvalHistoryVisible = true).
 - Consequence of the decision is shown when `showConsequenceOnReview=true` (§7.4).
 - Telemetry hooks required on: approve, reject, back without action, deadline-expired view (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -998,6 +1039,7 @@ Guide the user through creating a new entity record or editing an existing one v
 - AI-generated field fills are visually distinguishable from user-entered values (P11).
 - AI field fills require explicit user acceptance before applying (P11, P12).
 - Telemetry hooks required on: flow start, section advance, validation error, submit attempt, flow completion, flow abandonment (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -1007,6 +1049,8 @@ Guide the user through creating a new entity record or editing an existing one v
 | `review_step` | Emphasis variant | Omit (default for simple forms) vs include (for high-stakes) |
 | `autosave` | Structural variant | Disabled (default) vs enabled (requires backend support) |
 | `section_navigator_style` | Emphasis variant | Sidebar list (default) vs top stepper |
+
+> **Structural variant scope:** The `form_layout` and `autosave` variants are structural variants and require `scope=tenant` or `scope=role`. `scope=user` is not permitted for either (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -1103,6 +1147,7 @@ Guide the initiator through submitting an approval request — confirming what i
 - Cancel is available at every step (P6).
 - After submit, the initiator can see pending approval status on the RecordPage (ApprovalSpec.approvalHistoryVisible).
 - Telemetry hooks required on: flow start, submit, cancellation (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -1110,6 +1155,8 @@ Guide the initiator through submitting an approval request — confirming what i
 |---|---|---|
 | `approver_selection` | Structural variant | Pre-filled (default) vs user-selectable from approved set |
 | `supporting_context_step` | Emphasis variant | Optional step shown (default) vs hidden |
+
+> **Structural variant scope:** The `approver_selection` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -1202,6 +1249,7 @@ Guide the position holder through resolving a complex exception that requires mu
 - Audit entry generated for Critical exceptions (schema C5, AlertSpec.generateAuditEntry).
 - Impact preview is required for `severity=critical` exceptions — it may not be omitted.
 - Telemetry hooks required on: flow start, resolve, cancellation at each step (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -1304,6 +1352,7 @@ Guide a position holder through configuring a new position app, setting personal
 - Completion navigates to `defaultLandingViewId` — this is invariant.
 - All configured defaults can be changed later via personalization hooks — this must be communicated at the completion step.
 - Telemetry hooks required on: flow start, each step completion, AI suggestion accepted/rejected, flow completion, flow abandonment (P10).
+- When a capability used by this pattern is listed in `completeness.deferredCapabilities`, the generator renders a provisional frame in the affected region — never blank, empty, or absent (XP8, schema C11).
 
 **Approved variant surfaces**
 
@@ -1312,6 +1361,8 @@ Guide a position holder through configuring a new position app, setting personal
 | `ai_assist_mode` | Structural variant | Suggestions only (default) vs auto-fill with explicit review step |
 | `skip_availability` | Emphasis variant | Per-step skip (default) vs no-skip for mandatory configuration |
 | `welcome_step` | Emphasis variant | Full welcome (default) vs minimal header only |
+
+> **Structural variant scope:** The `ai_assist_mode` variant is a structural variant and requires `scope=tenant` or `scope=role`. `scope=user` is not permitted (§2.4, schema C12).
 
 **Slot-to-component mapping**
 
@@ -1366,7 +1417,7 @@ Every region that can be empty must have an EmptyState component with a message 
 Every pattern, every region, every semantic child must meet WCAG 2.1 AA. Focus management, keyboard navigation, and aria annotations are required. Accessibility must survive regeneration (UX Doctrine P9, I6).
 
 **XP4 — Telemetry hooks are part of every pattern contract**  
-All primary actions, flow completions, flow abandonments, error encounters, and empty-state views carry telemetry hooks. Hook keys are invariant across regenerations (P10, I7).
+All primary actions, flow completions, flow abandonments, error encounters, and empty-state views carry telemetry hooks. Hook keys are invariant across regenerations (UX Doctrine §2.7, P10).
 
 **XP5 — AI actions are always distinguishable**  
 In any pattern where AI assist hooks are active, AI-generated content is visually labeled and requires explicit user acceptance before it affects business state (P11, P12).
@@ -1376,6 +1427,18 @@ In page patterns, state (status badge, record state, exception severity) is alwa
 
 **XP7 — Pattern type is invariant across regenerations**  
 A view assigned `CollectionView` must remain `CollectionView` across regenerations. A silent pattern change is a breaking change (UX Doctrine I4, schema §6.2).
+
+**XP8 — Provisional frames for deferred capabilities**  
+When the `completeness.deferredCapabilities` list in the position's projection includes an extension section name (e.g., `alerts`, `tasks`, `approvals`, `decisions`, `collaborators`, `stateSummaries`, `aiAssistHooks`), or when an extension section is absent from the projection without being declared in `outOfScopeCapabilities`, the generator must render the corresponding UI region as a **provisional frame** — not as absent, empty, hidden, or zero. A provisional frame must satisfy all four of the following requirements:
+
+1. **Identify** the deferred capability by name in plain language (e.g., "Alerts are not yet set up for this position").
+2. **Explain** what will be available once the capability is fully modeled (e.g., "When configured, alerts will surface here for active exceptions requiring your attention").
+3. **Surface a next-best action** where applicable — navigation to a related available view, a contact path, or a fallback action. If no next-best action exists, the frame still renders with identification and explanation.
+4. **Never** render as blank, zero-count, an empty list with no label, or a fully hidden region. Unknown must not masquerade as empty or absent.
+
+The `DeferredCapabilityPlaceholder` component (defined in Semantic Component Library 10.5) is the standard component for provisional frames. Generator behavior for deferred capabilities is enforced by schema C11. Extension sections declared in `completeness.outOfScopeCapabilities` render as **absent or hidden** — they are confirmed not applicable and must not render as provisional.
+
+Each pattern's Invariants section references this rule for the capabilities relevant to that pattern.
 
 ---
 
@@ -1398,6 +1461,9 @@ Use this checklist to evaluate any pattern specification, component placement, o
 | Is the pattern type invariant (not changed from prior regeneration)? | XP7, I4 |
 | Are invariants documented and enforced for this view? | Per-pattern invariants |
 | Are all variant surfaces declared as approved variants? | Per-pattern approved variants |
+| Are deferred capabilities rendered as provisional frames — not empty, absent, or zero? | XP8, schema C11, UX Doctrine §2.8 |
+| Are all structural variants registered in §2.4 (not invented outside the approved registry)? | §2.4, schema C12, UX Doctrine §3.4, P13 |
+| Are structural variant surfaces scoped to tenant or role — never user? | §2.4, schema C12, UX Doctrine §3.4 |
 
 ---
 
@@ -1411,6 +1477,27 @@ Use this checklist to evaluate any pattern specification, component placement, o
 | AI assist hook types per pattern | AI service layer | Hook trigger contexts declared here; AI service binding defined separately |
 | Pattern-to-IR mapping | Compiler intermediate representation | Pattern names and slot vocabulary defined here; IR targeting is a compiler workstream concern |
 | Prototype workflow validation | Golden Workflow Prototypes (10.6) | This library is validated against real workflows in 10.6 |
+| Provisional frame behavior for deferred capabilities | Position Projection Schema v0 §4.16 (ProjectionCompletenessSpec) | `completeness.deferredCapabilities` and `outOfScopeCapabilities` determine whether absent extension sections render as provisional frames (XP8, C11) or as absent/hidden. This library defines the provisional frame contract (XP8); the schema declares the completeness state and enforces C11. |
+| Structural variant scope and registry | Position Projection Schema v0 §4.15 (PersonalizationHooks) | `PersonalizationSurface.isStructuralVariant=true` requires validation against §2.4 of this library. The schema enforces C12 (scope=tenant or scope=role); this library is the authoritative registry of which structural variants are approved and for which patterns. |
+
+---
+
+## 8. Milestone exit criteria — self-assessment
+
+| Exit criterion | Status | Evidence |
+|---|---|---|
+| All pattern names match `ViewSpec.pattern` vocabulary in the Position Projection Schema | Met | P1–P6 and F1–F4 correspond exactly to the schema's pattern enum values |
+| `PatternInputBinding` required/optional contracts defined for all 10 patterns | Met | §2 Pattern input contract table; each pattern's Required inputs and Optional inputs |
+| Pattern selection is deterministic | Met | §2.1 priority-ordered selection rules; conflict resolution rule defined |
+| Composition rules enforced at compile time | Met | §2.2 PC1–PC7; violations are compile errors |
+| Standard pattern lifecycle defined and applied | Met | §2.3 standard lifecycle; each pattern references or notes deviations |
+| Cross-pattern rules defined and enforced | Met | §5 XP1–XP8; all patterns reference applicable rules |
+| Provisional rendering contract defined for deferred capabilities | Met (patch round 1) | XP8 added; all 10 patterns' Invariants sections reference XP8; aligns with schema C11 and UX Doctrine §2.8 |
+| Structural variant registry present and scope-constrained | Met (patch round 1) | §2.4 Structural Variant Registry added with 8 entries; scope=tenant or scope=role enforced; aligns with schema C12 and UX Doctrine §3.4 |
+| Structural variant scope notes added per pattern | Met (patch round 1) | All 7 patterns with structural variants have scope constraint notes on their variant tables |
+| Library declared as compiler constraint, not reference documentation | Met (patch round 1) | Generation-constraint opener added to header |
+| Open seams to dependent work products identified | Met (patch round 1) | §7 open seams; two seam entries added connecting to schema §4.15 and §4.16 |
+| Stale doctrine cross-references resolved | Met (patch round 1) | XP4 I7 reference corrected to UX Doctrine §2.7, P10 |
 
 ---
 
