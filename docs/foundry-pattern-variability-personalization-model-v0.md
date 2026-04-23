@@ -1,11 +1,13 @@
 # Foundry Pattern Variability and Personalization Model v0
 
-**Status:** First working draft  
+**Status:** Revised v0 — patch round 1  
 **Workstream:** UI/UX — Work Product 10.4  
 **References:** Foundry UX Doctrine v0, Foundry Position Projection Schema v0, Foundry UI Pattern Library v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the complete model for how variation is permitted within Foundry position apps — what can vary, at what scope, through what mechanism, under what governance, and what can never be changed.
 
 This document is the authoritative source for the personalization and variability model. It expands the doctrine principles (UX Doctrine §3) into an operational specification. All pattern variant declarations (10.3), schema personalization hooks (10.2 §4.15), and runtime personalization behaviors must be consistent with this model.
+
+This model is a **governing constraint**, not reference documentation. Variation not explicitly permitted here is prohibited — no implementer, admin, or user has authority to introduce variation types, scope overrides, or personalization surfaces outside this model. Every approved variant, scope rule, and invariant defined here is enforced at compile time (structural variants) or by runtime validation (view-state and emphasis variants). A gap in this model is a model defect, not an implicit permission.
 
 ---
 
@@ -341,7 +343,7 @@ The `PersonalizationSurface` schema is defined in 10.2 §4.15. This document doe
 | `emphasis_variant` | Emphasis variant | Role or User (per §4 registry) | Yes when user-scope; no when role-scope (compiled) | Role: compile-time; User: runtime |
 | `structural_variant` | Structural variant | Role (never user) | No — compiled into PositionProjection | Compile-time only |
 
-**Key rule from this mapping:** Any `PersonalizationSurface` with `surfaceType=structural_variant` must have `isStructuralVariant=true`, must have max scope ≤ role, and must never appear in the runtime preference store. If a structural_variant entry is found in the preference store for a user, it is stale data and must be discarded silently.
+**Key rule from this mapping:** Any `PersonalizationSurface` with `surfaceType=structural_variant` must have `isStructuralVariant=true`, must have max scope ≤ role, and must never appear in the runtime preference store. If a structural_variant entry is found in the preference store for a user, it is stale data and must be discarded silently. This rule is enforced at compile time by projection-local rule C13 in Position Projection Schema v0 §5.1.
 
 ---
 
@@ -474,6 +476,48 @@ These constraints apply to the preference service and validation pipeline. They 
 
 ---
 
+### 6.6 Personalization and provisional / deferred state
+
+The progressive-incompleteness model (schema §4.16, UX Doctrine §2.8, Pattern Library XP8) introduces a deferred state for extension capabilities. This section defines how the personalization model behaves when a capability is deferred, provisional, or out of scope.
+
+**Provisional frames are not personalization surfaces**
+
+When a capability is listed in `completeness.deferredCapabilities` (or is absent from the projection without being declared in `outOfScopeCapabilities`), the generator renders the corresponding UI region as a provisional frame per XP8. A provisional frame is a **compiler-generated rendering state** — it is produced by the generator from the projection's `ProjectionCompletenessSpec`, not from the preference service. It is not a personalization surface. It cannot be configured, dismissed, hidden, or styled by any variation mechanism at any scope. The provisional frame is visible equally to all users of that position until the capability is resolved. No preference entry may target a provisional frame.
+
+**Dormant preferences for deferred surfaces**
+
+When a capability that previously had resolved personalization surfaces becomes deferred in a subsequent regeneration (for example, a partial re-slice or rollback), any stored view-state preferences for that capability's views and surfaces transition to **dormant** status — they are not discarded.
+
+Dormant preferences:
+1. Are retained in the preference store under their existing compound key (§6.1).
+2. Are not applied to the UI while the capability is deferred — the provisional frame renders in their place.
+3. Are not surfaced to the user as active configurations.
+4. Are not subject to the conflict resolution algorithm (§7) solely because the capability is deferred. Deferred is not an orphan condition.
+
+**Dormant vs orphaned — the distinction**
+
+| State | Cause | Fate of preference |
+|---|---|---|
+| Dormant | Capability moved from `resolvedCapabilities` to `deferredCapabilities`; the view and surface IDs still exist in the projection | Retained; reactivated when capability resolves |
+| Orphaned (Scenario A) | View removed from `workSurface.views` entirely, or surface removed from `personalizationHooks.allowedSurfaces` | Discarded per §7; user notified per conflictPolicy |
+
+A preference is dormant when the capability is suspended. A preference is orphaned when its structural anchor is removed. These must not be confused — treating dormant preferences as orphaned would silently destroy user configuration.
+
+**Activation path when a deferred capability resolves**
+
+When a deferred capability transitions into `resolvedCapabilities` in a subsequent regeneration:
+
+1. The preference service detects the new `positionVersion` at app init (§6.4 lifecycle).
+2. All dormant preferences associated with that capability's views and surfaces are promoted to active status.
+3. The conflict resolution algorithm (§7) runs on the newly-active preferences to validate them against the new projection. Preferences that were valid when stored but are now structurally invalid (for example, a filter key that does not exist in the resolved capability's views) are treated as Scenario A at this point.
+4. Preferences that remain valid are applied without user notification — the capability is now available, and applying saved preferences is the expected behavior.
+
+**Out-of-scope capabilities have no preference surfaces**
+
+When a capability is listed in `completeness.outOfScopeCapabilities`, it is confirmed absent and the UI region is hidden. There are no personalization surfaces for out-of-scope capabilities. Any preference stored for a surface associated with a now-out-of-scope capability is treated as Scenario A (surface removed) and discarded. Unlike the deferred case, out-of-scope is a permanent determination — no activation path exists until the capability is explicitly re-scoped by the position model.
+
+---
+
 ## 7. Conflict resolution algorithm
 
 This section expands UX Doctrine §3.5 (Scenarios A–D) into an operational algorithm. The algorithm runs on every app load where a new `positionVersion` is detected for the current user's position.
@@ -590,7 +634,7 @@ The navigation graph (NavigationSpec in 10.2 §4.2a) is schema-level. It is gove
 - No conflict resolution triggered.
 
 **When `defaultLandingViewId` changes:**
-- `defaultLandingViewId` is a schema-level field in DefaultViewHints — it is not a personalization surface in v0.
+- `defaultLandingViewId` is a schema-level field owned by `workSurface.navigation` (NavigationSpec) — it is not a personalization surface in v0. `DefaultViewHints` intentionally does not own this field; canonical ownership is in `NavigationSpec` per schema §4.14 and the §2.3 canonical ownership rule.
 - The new landing view takes effect on next app load for all users.
 - If a user had a `pinned_view` shortcut to the old landing view, it remains valid (the view still exists).
 - There is no user-scope "saved landing view" preference in v0. If this is added in a future version, it must handle the interaction with `defaultLandingViewId` changes explicitly.
@@ -722,9 +766,10 @@ The following properties of a position app can never be changed through any pers
 | I4 | Pattern grammar — a view's pattern type does not change silently during regeneration |
 | I5 | Personalization data — regeneration does not overwrite user-saved preferences |
 | I6 | Accessibility — focus management, aria labels, and keyboard navigation not degraded |
-| I7 | Telemetry hook keys — event names treated as breaking change if modified |
 | I8 | Action budget compliance — no variant may exceed 1 primary + max 3 secondary + overflow |
 | I9 | Cross-position semantic consistency — same business action, same label, across all positions |
+
+> **Note on I7:** Telemetry hook key stability was reclassified in UX Doctrine v0 as an instrumentation-layer concern, not a UI-layer doctrine invariant. It does not appear in this table. Stability of `telemetryKey` values is governed by the schema's seam note in §4.8 and by the evaluation/instrumentation specification.
 
 ### 10.2 From UX Doctrine §3.2
 
@@ -807,10 +852,15 @@ Structural variants require all tests from §11.1 plus:
 
 | Exit criterion | Status | Evidence |
 |---|---|---|
-| Invariants versus variable surfaces are explicit | Met | §10 exhaustive invariant list (I1–I9, doctrine §3.2, V1–V6); §2 defines all variation types and their limits |
+| Invariants versus variable surfaces are explicit | Met | §10 exhaustive invariant list (I1, I2–I6, I8–I9, doctrine §3.2, V1–V6); §2 defines all variation types and their limits |
 | Precedence and fallback rules are defined | Met | §3.3 full precedence algorithm with special cases and fallback behavior explicitly specified |
 | Structural variants are tightly bounded | Met | §8 governance process with all five approval requirements; §4 registry as sole authority; V4 invariant (never user-scope); §8.1 structural qualification test |
 | The model is supportable and testable | Met | §11 testing model per variation type; §6 view-state storage model with defined lifecycle and invalidation; §7 operational conflict resolution algorithm with step-by-step logic |
+| Personalization behavior for deferred / provisional capabilities defined | Met (patch round 1) | §6.6 added: provisional frames as compiler-generated states (not personalization surfaces), dormant preference storage, activation path on capability resolution, out-of-scope handling |
+| I7 stale doctrine reference removed | Met (patch round 1) | I7 removed from §10.1 invariant table; note added clarifying reclassification as instrumentation-layer concern per revised UX Doctrine v0 |
+| Schema C13 compile-time enforcement referenced in §4.12 | Met (patch round 1) | Key rule in §4.12 now references C13 (projection-local schema §5.1) as the compile-time enforcement mechanism for structural variant scope |
+| `defaultLandingViewId` canonical ownership corrected in §7.4 | Met (patch round 1) | §7.4 updated to `workSurface.navigation` (NavigationSpec); corrects stale reference to `DefaultViewHints` per schema Final v0 §4.14 and §2.3 |
+| Document declared as governing constraint | Met (patch round 1) | Generation-constraint opener added to header |
 
 ---
 
