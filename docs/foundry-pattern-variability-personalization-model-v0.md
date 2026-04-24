@@ -1,6 +1,6 @@
 # Foundry Pattern Variability and Personalization Model v0
 
-**Status:** Revised v0 — patch round 1  
+**Status:** Revised v0 — patch round 2  
 **Workstream:** UI/UX — Work Product 10.4  
 **References:** Foundry UX Doctrine v0, Foundry Position Projection Schema v0, Foundry UI Pattern Library v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the complete model for how variation is permitted within Foundry position apps — what can vary, at what scope, through what mechanism, under what governance, and what can never be changed.
@@ -766,10 +766,11 @@ The following properties of a position app can never be changed through any pers
 | I4 | Pattern grammar — a view's pattern type does not change silently during regeneration |
 | I5 | Personalization data — regeneration does not overwrite user-saved preferences |
 | I6 | Accessibility — focus management, aria labels, and keyboard navigation not degraded |
-| I8 | Action budget compliance — no variant may exceed 1 primary + max 3 secondary + overflow |
-| I9 | Cross-position semantic consistency — same business action, same label, across all positions |
+| I7 | Action budget compliance — no variant may exceed 1 primary + max 3 secondary + overflow |
+| I8 | Cross-position semantic consistency — same business action, same label, across all positions |
+| I9 | Provisional-state honesty — no variant or regeneration may convert unknown or provisional state into false completeness, false precision, or misleading emptiness |
 
-> **Note on I7:** Telemetry hook key stability was reclassified in UX Doctrine v0 as an instrumentation-layer concern, not a UI-layer doctrine invariant. It does not appear in this table. Stability of `telemetryKey` values is governed by the schema's seam note in §4.8 and by the evaluation/instrumentation specification.
+> **Note on former I7 (telemetry):** Telemetry hook key stability was reclassified in UX Doctrine v0 as an instrumentation-layer concern, not a UI-layer doctrine invariant. It does not appear in this table. Stability of `telemetryKey` values is governed by the schema's seam note in §4.8 and by the evaluation/instrumentation specification.
 
 ### 10.2 From UX Doctrine §3.2
 
@@ -857,7 +858,7 @@ Structural variants require all tests from §11.1 plus:
 | Structural variants are tightly bounded | Met | §8 governance process with all five approval requirements; §4 registry as sole authority; V4 invariant (never user-scope); §8.1 structural qualification test |
 | The model is supportable and testable | Met | §11 testing model per variation type; §6 view-state storage model with defined lifecycle and invalidation; §7 operational conflict resolution algorithm with step-by-step logic |
 | Personalization behavior for deferred / provisional capabilities defined | Met (patch round 1) | §6.6 added: provisional frames as compiler-generated states (not personalization surfaces), dormant preference storage, activation path on capability resolution, out-of-scope handling |
-| I7 stale doctrine reference removed | Met (patch round 1) | I7 removed from §10.1 invariant table; note added clarifying reclassification as instrumentation-layer concern per revised UX Doctrine v0 |
+| I7 stale doctrine reference removed; I-numbers corrected | Met (patch round 2) | Former I7 (telemetry) removed from §10.1 table; I8 renumbered to I7 (action budget), I9 renumbered to I8 (cross-position); I9 added (provisional-state honesty) — all now align with UX Doctrine v0 §8 numbering |
 | Schema C13 compile-time enforcement referenced in §4.12 | Met (patch round 1) | Key rule in §4.12 now references C13 (projection-local schema §5.1) as the compile-time enforcement mechanism for structural variant scope |
 | `defaultLandingViewId` canonical ownership corrected in §7.4 | Met (patch round 1) | §7.4 updated to `workSurface.navigation` (NavigationSpec); corrects stale reference to `DefaultViewHints` per schema Final v0 §4.14 and §2.3 |
 | Document declared as governing constraint | Met (patch round 1) | Generation-constraint opener added to header |

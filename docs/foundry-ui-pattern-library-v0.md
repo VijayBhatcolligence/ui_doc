@@ -1,6 +1,6 @@
 # Foundry UI Pattern Library v0
 
-**Status:** Revised v0 — patch round 2  
+**Status:** Revised v0 — patch round 3  
 **Workstream:** UI/UX — Work Product 10.3  
 **References:** Foundry UX Doctrine v0, Foundry Position Projection Schema v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the authoritative specification for all UI patterns available to the generator when composing position apps.
@@ -28,7 +28,7 @@ Each pattern is specified with sixteen properties. All sixteen are required befo
 | State behavior | How the pattern behaves across its meaningful states |
 | Pattern lifecycle | Which lifecycle states this pattern passes through (see §2.3 for the standard lifecycle) |
 | Loading / empty / error | How the pattern handles each edge-condition state |
-| Responsive behavior | How the pattern adapts across density modes and device scope |
+| Responsive behavior | How the pattern adapts across density modes and the declared device profile (`desktop_primary`, `mobile_primary`, `dual_mode`); per UX Doctrine D8 |
 | Allowed semantic children | Which semantic components (10.5) may be placed in this pattern |
 | Invariants | Rules that must survive regeneration and personalization |
 | Approved variant surfaces | Permitted variations, their type, and their scope |
@@ -241,7 +241,7 @@ Display a navigable, searchable, filterable list of records of a single entity t
 **Responsive behavior**  
 - **Desktop (primary):** Filter rail visible in sidebar; full row layout with all key facts.
 - **Compact density:** Tighter row height; reduced whitespace; action budget unchanged.
-- **Mobile (assisted only):** Single-column simplified rows; search visible; filter behind panel toggle; bulk selection disabled; inline row actions reduced to 1.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Single-column simplified rows; search visible; filter behind panel toggle; bulk selection disabled; inline row actions reduced to 1.
 
 **Allowed semantic children**  
 `FilterRail`, `BulkActionBar`, `StatusBanner`, `EmptyState`, `ValidationSummary`, `ActionPanel`
@@ -388,7 +388,7 @@ The exact state model and its primary action mapping come from the entity's Task
 **Responsive behavior**  
 - **Desktop (primary):** Two-column layout — content sections (main) + contextual sidebar (right).
 - **Compact density:** Single-column; sidebar moves below content sections.
-- **Mobile (assisted only):** Single-column; sidebar collapsed; primary action fixed at bottom of screen.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Single-column; sidebar collapsed; primary action fixed at bottom of screen.
 
 **Allowed semantic children**  
 `RecordHeader`, `KeyFactsStrip`, `SmartFormSection`, `RelatedRecordsSection`, `ActivityTimeline`, `ApprovalPanel`, `AttachmentPanel`, `TaskContextPanel`, `ActionPanel`, `StatusBanner`, `CommentConversationPanel`, `EmptyState`
@@ -525,7 +525,7 @@ Provide the position holder a high-level operational dashboard of their work dom
 **Responsive behavior**  
 - **Desktop (primary):** Summary strip across top; alert list and tasks in two columns below.
 - **Compact density:** Summary strip wraps to two rows; single-column below.
-- **Mobile (assisted only):** Summary strip (tiles only); alert list; tasks and quick-links hidden.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Summary strip (tiles only); alert list; tasks and quick-links hidden.
 
 **Allowed semantic children**  
 `StatusBanner`, `EmptyState`, `TaskContextPanel`, `ActionPanel`
@@ -1141,6 +1141,11 @@ Guide the initiator through submitting an approval request — confirming what i
 | Success | Navigate to RecordPage with pending approval status visible |
 | Error | StatusBanner; form unlocked; retry available |
 
+**Responsive behavior**
+- **Desktop (`desktop_primary`):** Full multi-step layout; context confirmation and approver list displayed with ample context; progress indicator in flow header.
+- **Compact:** Single-column; section spacing reduced; progress indicator remains visible.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Single-column; one step per screen; approver list scrollable; Submit request action fixed at bottom of final step.
+
 **Invariants**  
 - The consequence of the approval request is shown before submit (§7.4).
 - Required approvers are confirmed before submission.
@@ -1241,6 +1246,11 @@ Guide the position holder through resolving a complex exception that requires mu
 | Resolving | Loading state on final step; form locked |
 | Success | Exception dismissed; brief success state; return navigation |
 | Error | StatusBanner; form unlocked; retry |
+
+**Responsive behavior**
+- **Desktop (`desktop_primary`):** Full step layout; exception context visible alongside resolution input in sequence; ImpactPreviewPanel rendered inline.
+- **Compact:** Single-column; tightened spacing.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Single-column; one step per screen; ImpactPreviewPanel scrollable; Resolve action fixed at bottom of final step.
 
 **Invariants**  
 - Exit available at every step (P6).
@@ -1345,6 +1355,11 @@ Guide a position holder through configuring a new position app, setting personal
 | Review | All configuration choices visible; each editable via Back |
 | Completing | Submit loading; configuration persisted |
 | Done | Navigate to landing view |
+
+**Responsive behavior**
+- **Desktop (`desktop_primary`):** Full step layout; StepNavigator as sidebar list for multi-configuration steps; AI suggestions displayed in a side panel alongside the active configuration field.
+- **Compact:** Single-column; StepNavigator as top stepper.
+- **Mobile (`mobile_primary` or `dual_mode` positions):** Single-column; one configuration step per screen; AI suggestions shown inline below the relevant field; Complete action fixed at bottom of final step.
 
 **Invariants**  
 - AI suggestions are clearly labeled and require explicit acceptance before applying (P11, P12).
@@ -1499,6 +1514,7 @@ Use this checklist to evaluate any pattern specification, component placement, o
 | Open seams to dependent work products identified | Met (patch round 1) | §7 open seams; two seam entries added connecting to schema §4.15 and §4.16 |
 | Stale doctrine cross-references resolved | Met (patch round 1) | XP4 I7 reference corrected to UX Doctrine §2.7, P10 |
 | Schema constraint rule numbers aligned with Final v0 schema | Met (patch round 2) | New C4 insertion shifted C5→C6, C6→C7, C7→C8, C10→C11, C11→C12, C12→C13; `DefaultViewHints.defaultLandingViewId` corrected to `workSurface.navigation.defaultLandingViewId` in F4 slot mapping; PatternId vocabulary language aligned |
+| Device-profile-aware responsive behavior declared for all 10 patterns | Met (patch round 3) | P1/P2/P3 "Mobile (assisted only)" label corrected to "`mobile_primary` or `dual_mode` positions" per D6/D9; F2/F3/F4 missing "Responsive behavior" sections added per D8; §1 property description updated to reference device profile |
 
 ---
 
