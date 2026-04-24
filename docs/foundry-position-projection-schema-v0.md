@@ -1,6 +1,6 @@
 # Foundry Position Projection Schema v0
 
-**Status:** Final v0  
+**Status:** Final v0 — patch round 1  
 **Workstream:** UI/UX — Work Product 10.2  
 **References:** Foundry UX Doctrine v0, Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the UI-facing schema that the compiler must resolve to generate a position app.
@@ -130,12 +130,14 @@ Identifies and scopes the position. These fields are stable invariants unless ex
 | `tenantId` | id | Required | The company this position belongs to | |
 | `boundedContextId` | id | Required | The bounded context that owns this position's primary data | Seam: bounded context definition lives in semantic layer |
 | `orgUnit` | string | Optional | The org unit or department | Display only; not a routing key |
+| `deviceProfile` | `enum(desktop_primary, mobile_primary, dual_mode)` | Required | The primary operating device profile for this position | Declared by the model layer; consumed by the generator for pattern adaptation; see UX Doctrine §5 |
 | `positionVersion` | string | Required | Version of this compiled position projection | Semver; not interchangeable with `schemaVersion` |
 
 **Rules:**
 - `positionId` and `positionSlug` are invariants. They must not change when the position is regenerated without explicit migration.
 - `positionVersion` changes when the compiled projection changes materially, even if `schemaVersion` does not.
 - `schemaVersion` is the canonical owner of schema structure version. `positionVersion` is the canonical owner of one projection instance's version.
+- `deviceProfile` is read from the semantic model and compiled into the projection. The generator must adapt pattern rendering, responsive behavior, and device-specific variant selection to the declared `deviceProfile`. Silently treating a `mobile_primary` or `dual_mode` position as `desktop_primary` is a generation error (UX Doctrine D10).
 
 ---
 
@@ -840,6 +842,7 @@ Integration points where other Foundry layers connect. Identified here to preven
 
 | Seam | Connects to | Current status at v0 |
 |---|---|---|
+| `deviceProfile` in `PositionIdentity` | UX Doctrine §5 (D1–D10) + UI Pattern Library v0 (10.3) | Device profile is declared here; pattern behavior adaptation and device-specific variant selection are governed by UX Doctrine D1–D10 and pattern responsive behavior specs in 10.3 |
 | `boundedContextId` in `PositionIdentity` | Semantic layer bounded context model | Placeholder id; full context definition is out of scope |
 | `primaryEntityType` in `ViewSpec` and `entityType` in `EntityTypeRef` | Full entity model in semantic layer | Entity types are named here; field definitions and schema live in the semantic layer |
 | `pattern` and `patternVariant` in `ViewSpec` | UI Pattern Library v0 (10.3) | Closed v0 vocabulary here; legitimacy and approved variants validated against 10.3 |
@@ -873,7 +876,8 @@ Integration points where other Foundry layers connect. Identified here to preven
 | Canonical ownership is explicit | Met | `schemaVersion`, `positionVersion`, and `defaultLandingViewId` ownership clarified |
 | Pattern vocabulary is stable enough for v0 without over-freezing later evolution | Met | Closed `PatternId` vocabulary for v0 with explicit migration path to registry-backed identifiers later |
 | Personalization surface scoping is aligned with UX Doctrine §3.4 three-way distinction | Met | Structural variants limited to tenant/role scopes; user personalization kept distinct |
+| Device profile is an explicit, required field in the schema | Met (patch round 1) | `deviceProfile` enum field added to §4.1 PositionIdentity; generator adaptation rule declared; seam to UX Doctrine §5 (D1–D10) and Pattern Library 10.3 added to §7 |
 
 ---
 
-*This document is Final v0. It preserves the full field-level projection contract while clarifying canonical ownership, validation scope, and compiler boundaries. It is intended to govern UI pattern selection and position app generation until replaced by a versioned successor.*
+*This document is Final v0 — patch round 1. It preserves the full field-level projection contract while clarifying canonical ownership, validation scope, and compiler boundaries. Patch round 1 adds `deviceProfile` to PositionIdentity per UX Doctrine §5 (patch round 2). It is intended to govern UI pattern selection and position app generation until replaced by a versioned successor.*

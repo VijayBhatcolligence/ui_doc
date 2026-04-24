@@ -1,6 +1,6 @@
 # Foundry UX Doctrine v0
 
-**Status:** Revised v0 — patch round 1  
+**Status:** Revised v0 — patch round 2  
 **Workstream:** UI/UX — Work Product 10.1  
 **References:** Foundry UI/UX Workstream Charter v1, Foundry2 Position-Centric Regenerative Software for SMBs v1  
 **Purpose:** Define the governing interaction principles, rules, and invariants for all Foundry position apps.
@@ -172,22 +172,76 @@ Exceptions to these principles require explicit pattern-level justification and 
 
 ---
 
-## 5. Default density rules
+## 5. Density and device strategy rules
 
-**D1 — Low density by default**  
-The default density is comfortable for the primary desktop operating surface. Generous spacing is the baseline. Power-user density is not the default.
+**D1 — Device strategy is position-derived**  
+Foundry does not assume one universal primary device. The primary operating device profile for a position app must be derived from the nature of the position's work.
 
-**D2 — Two explicit modes only**  
+Supported device profiles:
+- `desktop_primary`
+- `mobile_primary`
+- `dual_mode`
+
+This profile is declared by the projection/model layer and consumed by the generator. Patterns must adapt to it.
+
+**D2 — Low-friction density by default**  
+The default density must be comfortable for the declared primary device profile of the position. Generous spacing and clear hierarchy are the baseline. Power-user density is not the default unless the position explicitly requires it.
+
+**D3 — Two explicit density modes only**  
 Supported density modes: Default (comfortable) and Compact (higher information density). No other modes are permitted.
 
-**D3 — Compact mode preserves interaction grammar**  
-Compact mode reduces spacing, adjusts font size within range, and reduces whitespace. It must not increase visible actions beyond the action budget, expose additional fields, or change the interaction grammar.
+**D4 — Compact mode preserves interaction grammar**  
+Compact mode may reduce spacing, adjust font size within range, and reduce whitespace. It must not:
+- increase visible actions beyond the action budget,
+- expose additional fields,
+- alter navigation logic,
+- or change the interaction grammar.
 
-**D4 — Mobile scope is explicit and limited**  
-Primary device target is desktop. Mobile support is scoped to monitoring, approval review, and assisted workflows. Full data-entry flows are desktop-only unless a mobile-specific pattern is explicitly specified.
+**D5 — Device profile changes presentation, not doctrine**  
+The declared device profile may change:
+- layout,
+- slot emphasis,
+- region placement,
+- interaction ordering,
+- and whether a pattern uses a mobile-optimized variant.
 
-**D5 — No raw data grids by default**  
-Lists are presented as semantic record lists, not raw spreadsheet grids. Grid-style views are a compact structural variant, available only where explicitly modeled and supported.
+It must not change:
+- semantic action meaning,
+- state meaning,
+- approval semantics,
+- validation rules,
+- or regeneration invariants.
+
+**D6 — Mobile-primary is first-class, not reduced desktop**  
+For `mobile_primary` positions, the generated UX may use patterns or approved variants that are restructured for mobile operation. Mobile is not treated as a compressed desktop view. It may:
+- simplify layouts,
+- reorder actions,
+- reduce simultaneous visible regions,
+- and use stepwise flows where desktop uses broader surfaces.
+
+**D7 — Dual-mode requires coherent parity**  
+For `dual_mode` positions, desktop and mobile experiences may differ in layout and sequencing, but must preserve:
+- the same semantic action vocabulary,
+- the same state model,
+- the same approvals and traceability requirements,
+- and the same personalization scope rules.
+
+**D8 — Pattern specifications must declare device behavior against the profile**  
+Every pattern specification must define responsive behavior against the declared device profile. "Responsive" is not enough by itself; the pattern must state how it behaves for:
+- desktop-primary,
+- mobile-primary,
+- and dual-mode positions where applicable.
+
+**D9 — Full data-entry is allowed on mobile when the position requires it**  
+Foundry does not prohibit full data-entry flows on mobile. If a position is mobile-primary, create/edit, approval, and resolution flows may all be mobile-first, provided they still satisfy the doctrine's rules on:
+- action budget,
+- state-before-action,
+- validation clarity,
+- approval rigor,
+- and recoverability.
+
+**D10 — Unsupported device assumptions are a doctrine violation**  
+A generated position app must not silently assume desktop-first behavior when the declared device profile is `mobile_primary`, and must not silently assume mobile-first behavior when the declared device profile is `desktop_primary`.
 
 ---
 
@@ -334,7 +388,7 @@ Foundry borrows rigor from all three without inheriting big-bang rollout assumpt
 | Search placement | Variable; top-of-page or filtered | Global search prominent | Command bar search | Always immediate; always visible |
 | Empty states | Minimal; often absent | Structured; sometimes generic | Present but variable | Always communicative with action path |
 | Personalization | Rigid; limited user control | Rigid; tenant/admin controlled | Some view preferences | Bounded personalization as first-class |
-| Mobile | Responsive but not mobile-first | Responsive grid; not mobile-first | Moderate mobile consideration | Explicitly scoped to approve/monitor/assist |
+| Mobile | Responsive but not mobile-first | Responsive grid; not mobile-first | Moderate mobile consideration | Position-derived: `desktop_primary`, `mobile_primary`, or `dual_mode`; mobile is first-class for mobile-primary positions (D1, D6) |
 | Interaction tone | Enterprise formal | Enterprise structured | Familiar; Office-adjacent | Approachable; consumer-grade ease |
 | Accessibility | Partial; improving | Strong foundation | Strong by design | Required floor at WCAG 2.1 AA |
 | Adoption model | Big-bang module deployment | Admin-governed rollout | Suite-wide deployment | Pain-point-first; progressive semantic slices |
@@ -428,7 +482,8 @@ All subsequent specifications in this workstream — UI patterns, semantic compo
 | Is each exception assigned a severity tier? | §7.5 |
 | Is Critical exception behavior non-dismissible and audit-logged? | §7.5 |
 | If a principle is violated, is it declared as an approved variant? | Exception handling, §4 |
+| Is device behavior aligned with the declared position device profile (`desktop_primary`, `mobile_primary`, or `dual_mode`)? | section 5 |
 
 ---
 
-*This document is version 0, patch round 1. It supersedes the first working draft. All subsequent work products should be evaluated against this revised version.*
+*This document is version 0, patch round 2. It supersedes patch round 1. All subsequent work products should be evaluated against this revised version.*
